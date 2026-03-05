@@ -5,747 +5,291 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GPT-Researcher 深度检索架构</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;600&display=swap');
-
-  :root {
-    --bg-deep: #0a0e1a;
-    --bg-card: rgba(15, 22, 42, 0.85);
-    --border-subtle: rgba(99, 179, 237, 0.15);
-    --accent-cyan: #22d3ee;
-    --accent-blue: #3b82f6;
-    --accent-purple: #a78bfa;
-    --accent-emerald: #34d399;
-    --accent-amber: #fbbf24;
-    --accent-rose: #fb7185;
-    --text-primary: #e2e8f0;
-    --text-muted: #94a3b8;
-    --glow-cyan: 0 0 20px rgba(34, 211, 238, 0.3);
-    --glow-blue: 0 0 20px rgba(59, 130, 246, 0.3);
-  }
-
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-
-  body {
-    font-family: 'Noto Sans SC', sans-serif;
-    background: var(--bg-deep);
-    color: var(--text-primary);
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
-
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background:
-      radial-gradient(ellipse 80% 60% at 20% 10%, rgba(34,211,238,0.06), transparent),
-      radial-gradient(ellipse 60% 50% at 80% 80%, rgba(167,139,250,0.05), transparent),
-      radial-gradient(ellipse 40% 40% at 50% 50%, rgba(59,130,246,0.04), transparent);
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  .container {
-    position: relative;
-    z-index: 1;
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 40px 24px 80px;
-  }
-
-  /* Header */
-  .header {
-    text-align: center;
-    margin-bottom: 56px;
-    animation: fadeSlideDown 0.8s ease-out;
-  }
-
-  .header h1 {
-    font-size: 2.4rem;
-    font-weight: 900;
-    letter-spacing: -0.02em;
-    background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue), var(--accent-purple));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    margin-bottom: 12px;
-  }
-
-  .header .subtitle {
-    font-size: 1rem;
-    color: var(--text-muted);
-    font-weight: 300;
-    font-family: 'JetBrains Mono', monospace;
-  }
-
-  .header .subtitle code {
-    background: rgba(34,211,238,0.1);
-    padding: 2px 8px;
-    border-radius: 4px;
-    color: var(--accent-cyan);
-    font-size: 0.85rem;
-  }
-
-  /* Section titles */
-  .section-label {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: var(--accent-cyan);
-    margin-bottom: 16px;
-    font-family: 'JetBrains Mono', monospace;
-  }
-
-  .section-label::before {
-    content: '';
-    width: 20px;
-    height: 2px;
-    background: var(--accent-cyan);
-    border-radius: 1px;
-  }
-
-  /* ===== SEARCH TREE ===== */
-  .tree-section {
-    margin-bottom: 64px;
-    animation: fadeSlideUp 0.8s ease-out 0.2s both;
-  }
-
-  .tree-canvas {
-    position: relative;
-    background: var(--bg-card);
-    border: 1px solid var(--border-subtle);
-    border-radius: 16px;
-    padding: 40px 20px 32px;
-    overflow: hidden;
-  }
-
-  .tree-canvas::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, var(--accent-cyan), var(--accent-blue), transparent);
-  }
-
-  .tree-level {
-    display: flex;
-    justify-content: center;
-    gap: 12px;
-    margin-bottom: 8px;
-    position: relative;
-  }
-
-  .tree-level-label {
-    position: absolute;
-    left: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.65rem;
-    color: var(--text-muted);
-    white-space: nowrap;
-  }
-
-  .tree-node {
-    position: relative;
-    padding: 10px 16px;
-    border-radius: 10px;
-    font-size: 0.78rem;
-    font-weight: 500;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    min-width: 110px;
-  }
-
-  .tree-node:hover {
-    transform: translateY(-3px) scale(1.04);
-    z-index: 10;
-  }
-
-  .tree-node.root {
-    background: linear-gradient(135deg, rgba(34,211,238,0.2), rgba(59,130,246,0.2));
-    border: 1.5px solid rgba(34,211,238,0.5);
-    box-shadow: var(--glow-cyan);
-    font-weight: 700;
-    min-width: 200px;
-    padding: 14px 24px;
-  }
-
-  .tree-node.root:hover { box-shadow: 0 0 30px rgba(34,211,238,0.5); }
-
-  .tree-node.depth1 {
-    background: linear-gradient(135deg, rgba(59,130,246,0.15), rgba(167,139,250,0.15));
-    border: 1px solid rgba(59,130,246,0.4);
-    animation: nodeAppear 0.5s ease-out calc(var(--i) * 0.1s) both;
-  }
-
-  .tree-node.depth1:hover { box-shadow: var(--glow-blue); }
-
-  .tree-node.depth2 {
-    background: linear-gradient(135deg, rgba(167,139,250,0.12), rgba(251,113,133,0.12));
-    border: 1px solid rgba(167,139,250,0.35);
-    font-size: 0.72rem;
-    min-width: 90px;
-    padding: 8px 12px;
-    animation: nodeAppear 0.5s ease-out calc(0.4s + var(--i) * 0.08s) both;
-  }
-
-  .tree-node.depth2:hover { box-shadow: 0 0 16px rgba(167,139,250,0.4); }
-
-  .tree-node .node-badge {
-    display: inline-block;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.6rem;
-    padding: 1px 6px;
-    border-radius: 4px;
-    margin-top: 4px;
-    background: rgba(255,255,255,0.06);
-    color: var(--text-muted);
-  }
-
-  /* SVG connector lines */
-  .tree-lines {
-    width: 100%;
-    height: 28px;
-    display: block;
-  }
-
-  .tree-lines line {
-    stroke: rgba(99,179,237,0.25);
-    stroke-width: 1.5;
-    stroke-dasharray: 4 3;
-    animation: dashFlow 1.5s linear infinite;
-  }
-
-  /* Arrow indicator between levels */
-  .tree-arrow {
-    text-align: center;
-    margin: 4px 0;
-    color: var(--text-muted);
-    font-size: 0.7rem;
-    font-family: 'JetBrains Mono', monospace;
-    opacity: 0.6;
-  }
-
-  /* ===== FLOW PROCESS ===== */
-  .flow-section {
-    margin-bottom: 64px;
-    animation: fadeSlideUp 0.8s ease-out 0.4s both;
-  }
-
-  .flow-grid {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 8px;
-    position: relative;
-  }
-
-  .flow-step {
-    position: relative;
-    background: var(--bg-card);
-    border: 1px solid var(--border-subtle);
-    border-radius: 14px;
-    padding: 24px 14px 18px;
-    text-align: center;
-    transition: all 0.35s ease;
-    animation: fadeSlideUp 0.6s ease-out calc(var(--i) * 0.12s) both;
-  }
-
-  .flow-step:hover {
-    transform: translateY(-4px);
-    border-color: var(--step-color);
-    box-shadow: 0 8px 32px rgba(0,0,0,0.3), 0 0 20px color-mix(in srgb, var(--step-color) 25%, transparent);
-  }
-
-  .flow-step .step-icon {
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.3rem;
-    margin: 0 auto 12px;
-    background: linear-gradient(135deg, color-mix(in srgb, var(--step-color) 20%, transparent), color-mix(in srgb, var(--step-color) 8%, transparent));
-    border: 1px solid color-mix(in srgb, var(--step-color) 40%, transparent);
-  }
-
-  .flow-step h3 {
-    font-size: 0.82rem;
-    font-weight: 700;
-    margin-bottom: 6px;
-    color: var(--step-color);
-  }
-
-  .flow-step p {
-    font-size: 0.7rem;
-    color: var(--text-muted);
-    line-height: 1.5;
-  }
-
-  .flow-step .step-code {
-    margin-top: 8px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.6rem;
-    color: var(--accent-cyan);
-    background: rgba(0,0,0,0.3);
-    padding: 4px 8px;
-    border-radius: 6px;
-    display: inline-block;
-  }
-
-  .flow-connector {
-    position: absolute;
-    top: 50%;
-    right: -8px;
-    transform: translateY(-50%);
-    color: var(--text-muted);
-    font-size: 0.85rem;
-    z-index: 2;
-    animation: pulseArrow 2s ease-in-out infinite;
-  }
-
-  /* ===== HIGHLIGHTS GRID ===== */
-  .highlights-section {
-    margin-bottom: 64px;
-    animation: fadeSlideUp 0.8s ease-out 0.6s both;
-  }
-
-  .highlights-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
-  }
-
-  .highlight-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border-subtle);
-    border-radius: 14px;
-    padding: 24px 20px;
-    transition: all 0.35s ease;
-    position: relative;
-    overflow: hidden;
-    animation: fadeSlideUp 0.6s ease-out calc(0.6s + var(--i) * 0.1s) both;
-  }
-
-  .highlight-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background: linear-gradient(90deg, var(--card-color), transparent);
-    opacity: 0;
-    transition: opacity 0.3s;
-  }
-
-  .highlight-card:hover {
-    border-color: color-mix(in srgb, var(--card-color) 50%, transparent);
-    transform: translateY(-3px);
-    box-shadow: 0 12px 40px rgba(0,0,0,0.3);
-  }
-
-  .highlight-card:hover::before { opacity: 1; }
-
-  .highlight-card .card-num {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 2rem;
-    font-weight: 900;
-    color: color-mix(in srgb, var(--card-color) 30%, transparent);
-    position: absolute;
-    top: 12px;
-    right: 16px;
-    line-height: 1;
-  }
-
-  .highlight-card h3 {
-    font-size: 0.95rem;
-    font-weight: 700;
-    color: var(--card-color);
-    margin-bottom: 8px;
-  }
-
-  .highlight-card p {
-    font-size: 0.78rem;
-    color: var(--text-muted);
-    line-height: 1.65;
-  }
-
-  .highlight-card .tech-tag {
-    display: inline-block;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.62rem;
-    padding: 2px 8px;
-    border-radius: 4px;
-    margin-top: 10px;
-    margin-right: 4px;
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.08);
-    color: var(--text-muted);
-  }
-
-  /* ===== DATA FLOW BOTTOM ===== */
-  .dataflow-section {
-    animation: fadeSlideUp 0.8s ease-out 0.8s both;
-  }
-
-  .dataflow-bar {
-    display: flex;
-    align-items: center;
-    gap: 0;
-    background: var(--bg-card);
-    border: 1px solid var(--border-subtle);
-    border-radius: 14px;
-    overflow: hidden;
-  }
-
-  .dataflow-item {
-    flex: 1;
-    padding: 20px 16px;
-    text-align: center;
-    position: relative;
-    transition: all 0.3s ease;
-    border-right: 1px solid var(--border-subtle);
-  }
-
-  .dataflow-item:last-child { border-right: none; }
-
-  .dataflow-item:hover {
-    background: rgba(255,255,255,0.03);
-  }
-
-  .dataflow-item .df-label {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.68rem;
-    color: var(--text-muted);
-    margin-bottom: 4px;
-  }
-
-  .dataflow-item .df-value {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 1.1rem;
-    font-weight: 700;
-  }
-
-  .dataflow-item .df-desc {
-    font-size: 0.65rem;
-    color: var(--text-muted);
-    margin-top: 2px;
-  }
-
-  .dataflow-item .df-arrow {
-    position: absolute;
-    right: -6px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--text-muted);
-    font-size: 0.75rem;
-    z-index: 2;
-  }
-
-  /* ===== TOOLTIP ===== */
-  .tooltip {
-    position: fixed;
-    background: rgba(10, 14, 26, 0.96);
-    border: 1px solid rgba(34,211,238,0.3);
-    border-radius: 10px;
-    padding: 14px 18px;
-    font-size: 0.75rem;
-    color: var(--text-primary);
-    max-width: 280px;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.2s;
-    z-index: 1000;
-    backdrop-filter: blur(12px);
-    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-    line-height: 1.6;
-  }
-
-  .tooltip.visible { opacity: 1; }
-  .tooltip code {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.68rem;
-    background: rgba(34,211,238,0.1);
-    padding: 1px 5px;
-    border-radius: 3px;
-    color: var(--accent-cyan);
-  }
-
-  /* ===== ANIMATIONS ===== */
-  @keyframes fadeSlideDown {
-    from { opacity: 0; transform: translateY(-20px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  @keyframes fadeSlideUp {
-    from { opacity: 0; transform: translateY(16px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  @keyframes nodeAppear {
-    from { opacity: 0; transform: scale(0.8); }
-    to { opacity: 1; transform: scale(1); }
-  }
-
-  @keyframes dashFlow {
-    to { stroke-dashoffset: -14; }
-  }
-
-  @keyframes pulseArrow {
-    0%, 100% { opacity: 0.4; transform: translateY(-50%) translateX(0); }
-    50% { opacity: 0.8; transform: translateY(-50%) translateX(3px); }
-  }
-
-  /* Responsive */
-  @media (max-width: 900px) {
-    .flow-grid { grid-template-columns: repeat(3, 1fr); }
-    .highlights-grid { grid-template-columns: 1fr 1fr; }
-    .header h1 { font-size: 1.8rem; }
-  }
-
-  @media (max-width: 600px) {
-    .flow-grid { grid-template-columns: 1fr 1fr; }
-    .highlights-grid { grid-template-columns: 1fr; }
-    .dataflow-bar { flex-direction: column; }
-    .dataflow-item { border-right: none; border-bottom: 1px solid var(--border-subtle); }
-  }
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  --bg: #0a0e1a;
+  --cyan: #22d3ee;
+  --blue: #3b82f6;
+  --purple: #a78bfa;
+  --emerald: #34d399;
+  --amber: #fbbf24;
+  --rose: #fb7185;
+  --text: #e2e8f0;
+  --muted: #94a3b8;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Noto Sans SC',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; display:flex; align-items:center; justify-content:center; }
+body::before {
+  content:''; position:fixed; inset:0; pointer-events:none;
+  background: radial-gradient(ellipse 60% 45% at 25% 25%, rgba(34,211,238,.06), transparent),
+              radial-gradient(ellipse 50% 50% at 75% 70%, rgba(167,139,250,.05), transparent);
+}
+
+.diagram {
+  position:relative; z-index:1; width:1020px; padding:44px 36px 40px;
+  background:rgba(12,18,36,.92); border:1px solid rgba(34,211,238,.12);
+  border-radius:20px; backdrop-filter:blur(12px);
+  box-shadow: 0 0 80px rgba(34,211,238,.04), 0 24px 64px rgba(0,0,0,.5);
+}
+.diagram::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:2px; border-radius:20px 20px 0 0;
+  background:linear-gradient(90deg, transparent 5%, var(--cyan), var(--blue), var(--purple), transparent 95%);
+}
+
+.title { text-align:center; margin-bottom:32px; }
+.title h1 {
+  font-size:1.6rem; font-weight:900;
+  background:linear-gradient(135deg,var(--cyan),var(--blue),var(--purple));
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+}
+.title p { font-family:'JetBrains Mono',monospace; font-size:.76rem; color:var(--muted); margin-top:4px; }
+.title code { background:rgba(34,211,238,.1); padding:2px 7px; border-radius:4px; color:var(--cyan); font-size:.72rem; }
+
+svg { display:block; margin:0 auto; }
+svg text { font-family:'Noto Sans SC',sans-serif; }
+svg .mono { font-family:'JetBrains Mono',monospace; }
+
+@keyframes dash { to { stroke-dashoffset:-16; } }
+.anim-dash { stroke-dasharray:6,4; animation:dash 1.2s linear infinite; }
+.anim-dash-slow { stroke-dasharray:8,5; animation:dash 2s linear infinite; }
+
+.tip {
+  position:fixed; background:rgba(10,14,26,.97); border:1px solid rgba(34,211,238,.25);
+  border-radius:8px; padding:10px 14px; font-size:.72rem; color:var(--text);
+  max-width:250px; pointer-events:none; opacity:0; transition:opacity .15s;
+  z-index:1000; line-height:1.5; box-shadow:0 6px 20px rgba(0,0,0,.5);
+}
+.tip.on { opacity:1; }
+.tip code { font-family:'JetBrains Mono',monospace; font-size:.64rem; background:rgba(34,211,238,.12); padding:1px 4px; border-radius:3px; color:var(--cyan); }
+
+@media(max-width:1060px){ .diagram{width:96vw;padding:28px 16px;} svg{width:100%;height:auto;} }
 </style>
 </head>
 <body>
 
-<div class="container">
-
-  <!-- Header -->
-  <header class="header">
+<div class="diagram">
+  <div class="title">
     <h1>GPT-Researcher 深度检索架构</h1>
-    <p class="subtitle">DeepResearchSkill — 递归广度×深度搜索树 &nbsp;|&nbsp; <code>breadth=4 depth=2</code></p>
-  </header>
+    <p>DeepResearchSkill — 递归广度×深度搜索树 &nbsp;|&nbsp; <code>breadth=4 · depth=2 · Semaphore并发</code></p>
+  </div>
 
-  <!-- 1. Search Tree -->
-  <section class="tree-section">
-    <div class="section-label">01 递归搜索树结构</div>
-    <div class="tree-canvas">
+  <svg viewBox="0 0 950 580" width="950" height="580">
+    <defs>
+      <marker id="a-cyan" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto"><path d="M0,0 L7,2.5 L0,5" fill="#22d3ee"/></marker>
+      <marker id="a-blue" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto"><path d="M0,0 L7,2.5 L0,5" fill="#3b82f6"/></marker>
+      <marker id="a-purple" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto"><path d="M0,0 L7,2.5 L0,5" fill="#a78bfa"/></marker>
+      <marker id="a-emerald" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto"><path d="M0,0 L7,2.5 L0,5" fill="#34d399"/></marker>
+      <marker id="a-amber" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto"><path d="M0,0 L7,2.5 L0,5" fill="#fbbf24"/></marker>
+      <filter id="g-cyan"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    </defs>
 
-      <!-- Depth 0: Root -->
-      <div class="tree-level">
-        <div class="tree-level-label">Depth 0<br>原始查询</div>
-        <div class="tree-node root" data-tip="用户输入原始研究查询<br>由 Strategic LLM 生成研究计划<br><code>generate_research_plan()</code>">
-          🔬 原始查询<br><span class="node-badge">breadth=4</span>
-        </div>
-      </div>
+    <!-- ===== LEFT: SEARCH TREE ===== -->
 
-      <div class="tree-arrow">▼ LLM 自动派生 4 个子查询</div>
+    <!-- Depth label column -->
+    <text x="28" y="68" fill="#94a3b8" font-size="9" class="mono" text-anchor="middle">Depth 0</text>
+    <text x="28" y="198" fill="#94a3b8" font-size="9" class="mono" text-anchor="middle">Depth 1</text>
+    <text x="28" y="198" fill="#94a3b8" font-size="8" class="mono" text-anchor="middle" dy="12">breadth=4</text>
+    <text x="28" y="348" fill="#94a3b8" font-size="9" class="mono" text-anchor="middle">Depth 2</text>
+    <text x="28" y="348" fill="#94a3b8" font-size="8" class="mono" text-anchor="middle" dy="12">breadth=2</text>
 
-      <!-- Depth 1 -->
-      <div class="tree-level">
-        <div class="tree-level-label">Depth 1<br>breadth=4</div>
-        <div class="tree-node depth1" style="--i:0" data-tip="独立 GPTResearcher 实例<br>完整执行: 搜索→抓取→提炼<br><code>Semaphore(2)</code> 并发控制">🔎 子查询 A</div>
-        <div class="tree-node depth1" style="--i:1" data-tip="并行执行，受 Semaphore 限制<br>每个实例独立维护 visited_urls<br>结果包含 learnings + citations">🔎 子查询 B</div>
-        <div class="tree-node depth1" style="--i:2" data-tip="子查询由 Strategic LLM 生成<br><code>generate_search_queries()</code><br>包含 query + researchGoal">🔎 子查询 C</div>
-        <div class="tree-node depth1" style="--i:3" data-tip="处理完成后提取 learnings<br>生成 follow-up questions<br>决定是否递归深入">🔎 子查询 D</div>
-      </div>
+    <!-- ROOT NODE -->
+    <g data-tip="用户输入原始研究查询<br>Strategic LLM 生成研究计划<br><code>generate_research_plan()</code>" cursor="pointer">
+      <rect x="200" y="38" width="180" height="52" rx="12" fill="rgba(34,211,238,.12)" stroke="rgba(34,211,238,.5)" stroke-width="1.5" filter="url(#g-cyan)"/>
+      <text x="290" y="62" text-anchor="middle" fill="#22d3ee" font-size="14" font-weight="700">🔬 原始查询</text>
+      <text x="290" y="80" text-anchor="middle" fill="#94a3b8" font-size="9" class="mono">breadth=4, depth=2</text>
+    </g>
 
-      <div class="tree-arrow">▼ 广度减半 max(2, 4//2) = 2 · 递归深入</div>
+    <!-- Root → Depth1 lines -->
+    <line x1="220" y1="90" x2="120" y2="168" stroke="rgba(59,130,246,.3)" stroke-width="1.2" class="anim-dash"/>
+    <line x1="260" y1="90" x2="220" y2="168" stroke="rgba(59,130,246,.3)" stroke-width="1.2" class="anim-dash"/>
+    <line x1="320" y1="90" x2="340" y2="168" stroke="rgba(59,130,246,.3)" stroke-width="1.2" class="anim-dash"/>
+    <line x1="360" y1="90" x2="460" y2="168" stroke="rgba(59,130,246,.3)" stroke-width="1.2" class="anim-dash"/>
 
-      <!-- Depth 2 -->
-      <div class="tree-level">
-        <div class="tree-level-label">Depth 2<br>breadth=2</div>
-        <div class="tree-node depth2" style="--i:0" data-tip="基于 A 的 follow-up 生成<br>广度减半为 2<br>递归终止: depth=0">🔍 A-1</div>
-        <div class="tree-node depth2" style="--i:1" data-tip="每层递归创建新实例<br>累积所有 learnings<br>去重合并 visited_urls">🔍 A-2</div>
-        <div class="tree-node depth2" style="--i:2" data-tip="B 的后续研究<br>独立并发执行">🔍 B-1</div>
-        <div class="tree-node depth2" style="--i:3" data-tip="B 的后续研究<br>结果向上传播">🔍 B-2</div>
-        <div class="tree-node depth2" style="--i:4" data-tip="C 的后续研究">🔍 C-1</div>
-        <div class="tree-node depth2" style="--i:5" data-tip="C 的后续研究">🔍 C-2</div>
-        <div class="tree-node depth2" style="--i:6" data-tip="D 的后续研究">🔍 D-1</div>
-        <div class="tree-node depth2" style="--i:7" data-tip="D 的后续研究<br>此层结束后合并所有结果<br><code>trim_context_to_word_limit()</code>">🔍 D-2</div>
-      </div>
+    <!-- Label: LLM派生 -->
+    <text x="290" y="124" text-anchor="middle" fill="#3b82f6" font-size="9" font-weight="600">▼ LLM 自动派生 4 个子查询</text>
 
-      <div class="tree-arrow" style="margin-top:8px; color: var(--accent-emerald);">▲ 结果逐层向上汇聚 → learnings[] + citations{} + context[]</div>
-    </div>
-  </section>
+    <!-- DEPTH 1 NODES -->
+    <g data-tip="独立 GPTResearcher 实例<br>完整执行: 搜索→抓取→提炼<br><code>Semaphore(2)</code> 并发控制" cursor="pointer">
+      <rect x="60" y="168" width="110" height="48" rx="10" fill="rgba(59,130,246,.1)" stroke="rgba(59,130,246,.4)" stroke-width="1"/>
+      <text x="115" y="190" text-anchor="middle" fill="#3b82f6" font-size="12" font-weight="600">🔎 子查询 A</text>
+      <text x="115" y="206" text-anchor="middle" fill="#94a3b8" font-size="8" class="mono">Semaphore(2)</text>
+    </g>
+    <g data-tip="并行执行，受 Semaphore 限制<br>每个实例独立维护 visited_urls<br>结果含 learnings + citations" cursor="pointer">
+      <rect x="180" y="168" width="110" height="48" rx="10" fill="rgba(59,130,246,.1)" stroke="rgba(59,130,246,.4)" stroke-width="1"/>
+      <text x="235" y="190" text-anchor="middle" fill="#3b82f6" font-size="12" font-weight="600">🔎 子查询 B</text>
+      <text x="235" y="206" text-anchor="middle" fill="#94a3b8" font-size="8" class="mono">独立实例</text>
+    </g>
+    <g data-tip="子查询由 Strategic LLM 生成<br><code>generate_search_queries()</code><br>含 query + researchGoal" cursor="pointer">
+      <rect x="300" y="168" width="110" height="48" rx="10" fill="rgba(59,130,246,.1)" stroke="rgba(59,130,246,.4)" stroke-width="1"/>
+      <text x="355" y="190" text-anchor="middle" fill="#3b82f6" font-size="12" font-weight="600">🔎 子查询 C</text>
+      <text x="355" y="206" text-anchor="middle" fill="#94a3b8" font-size="8" class="mono">独立实例</text>
+    </g>
+    <g data-tip="处理完成后提取 learnings<br>生成 follow-up questions<br>决定是否递归深入" cursor="pointer">
+      <rect x="420" y="168" width="110" height="48" rx="10" fill="rgba(59,130,246,.1)" stroke="rgba(59,130,246,.4)" stroke-width="1"/>
+      <text x="475" y="190" text-anchor="middle" fill="#3b82f6" font-size="12" font-weight="600">🔎 子查询 D</text>
+      <text x="475" y="206" text-anchor="middle" fill="#94a3b8" font-size="8" class="mono">独立实例</text>
+    </g>
 
-  <!-- 2. Flow Process -->
-  <section class="flow-section">
-    <div class="section-label">02 单节点执行流程（自主闭环）</div>
-    <div class="flow-grid">
+    <!-- Label: 广度减半 -->
+    <text x="290" y="246" text-anchor="middle" fill="#a78bfa" font-size="9" font-weight="600">▼ 广度减半 max(2, 4//2) = 2 · 递归深入</text>
 
-      <div class="flow-step" style="--step-color: var(--accent-cyan); --i:0">
-        <div class="step-icon">❓</div>
-        <h3>生成子查询</h3>
-        <p>Strategic LLM 分析当前问题，生成 N 个搜索查询 + 研究目标</p>
-        <span class="step-code">generate_search_queries()</span>
-        <span class="flow-connector">→</span>
-      </div>
+    <!-- Depth1 → Depth2 lines -->
+    <line x1="100" y1="216" x2="80" y2="278" stroke="rgba(167,139,250,.25)" stroke-width="1" class="anim-dash"/>
+    <line x1="130" y1="216" x2="160" y2="278" stroke="rgba(167,139,250,.25)" stroke-width="1" class="anim-dash"/>
+    <line x1="220" y1="216" x2="230" y2="278" stroke="rgba(167,139,250,.25)" stroke-width="1" class="anim-dash"/>
+    <line x1="250" y1="216" x2="310" y2="278" stroke="rgba(167,139,250,.25)" stroke-width="1" class="anim-dash"/>
+    <line x1="340" y1="216" x2="380" y2="278" stroke="rgba(167,139,250,.25)" stroke-width="1" class="anim-dash"/>
+    <line x1="370" y1="216" x2="450" y2="278" stroke="rgba(167,139,250,.25)" stroke-width="1" class="anim-dash"/>
 
-      <div class="flow-step" style="--step-color: var(--accent-blue); --i:1">
-        <div class="step-icon">🌐</div>
-        <h3>并发检索</h3>
-        <p>Semaphore 控制并发，每个查询实例化独立 GPTResearcher 全流程执行</p>
-        <span class="step-code">Semaphore(2)</span>
-        <span class="flow-connector">→</span>
-      </div>
+    <!-- DEPTH 2 NODES (smaller) -->
+    <g data-tip="基于 A 的 follow-up 生成<br>广度减半为 2<br>递归终止: depth=0" cursor="pointer">
+      <rect x="50" y="278" width="72" height="36" rx="8" fill="rgba(167,139,250,.08)" stroke="rgba(167,139,250,.35)" stroke-width="1"/>
+      <text x="86" y="300" text-anchor="middle" fill="#a78bfa" font-size="10">🔍 A-1</text>
+    </g>
+    <g data-tip="每层递归创建新实例<br>累积所有 learnings<br>去重合并 visited_urls" cursor="pointer">
+      <rect x="132" y="278" width="72" height="36" rx="8" fill="rgba(167,139,250,.08)" stroke="rgba(167,139,250,.35)" stroke-width="1"/>
+      <text x="168" y="300" text-anchor="middle" fill="#a78bfa" font-size="10">🔍 A-2</text>
+    </g>
+    <g cursor="pointer" data-tip="B 的后续研究<br>独立并发执行">
+      <rect x="214" y="278" width="72" height="36" rx="8" fill="rgba(167,139,250,.08)" stroke="rgba(167,139,250,.35)" stroke-width="1"/>
+      <text x="250" y="300" text-anchor="middle" fill="#a78bfa" font-size="10">🔍 B-1</text>
+    </g>
+    <g cursor="pointer" data-tip="B 的后续研究<br>结果向上传播">
+      <rect x="296" y="278" width="72" height="36" rx="8" fill="rgba(167,139,250,.08)" stroke="rgba(167,139,250,.35)" stroke-width="1"/>
+      <text x="332" y="300" text-anchor="middle" fill="#a78bfa" font-size="10">🔍 B-2</text>
+    </g>
+    <g cursor="pointer" data-tip="C 的后续研究">
+      <rect x="378" y="278" width="72" height="36" rx="8" fill="rgba(167,139,250,.08)" stroke="rgba(167,139,250,.35)" stroke-width="1"/>
+      <text x="414" y="300" text-anchor="middle" fill="#a78bfa" font-size="10">🔍 C-1</text>
+    </g>
+    <g cursor="pointer" data-tip="D 的后续研究<br>此层结束后合并所有结果<br><code>trim_context_to_word_limit()</code>">
+      <rect x="460" y="278" width="72" height="36" rx="8" fill="rgba(167,139,250,.08)" stroke="rgba(167,139,250,.35)" stroke-width="1"/>
+      <text x="496" y="300" text-anchor="middle" fill="#a78bfa" font-size="10">🔍 D-1</text>
+    </g>
 
-      <div class="flow-step" style="--step-color: var(--accent-purple); --i:2">
-        <div class="step-icon">🧠</div>
-        <h3>要点提取</h3>
-        <p>从搜索结果中提取 learnings，关联源 URL 形成 citations 引用图谱</p>
-        <span class="step-code">process_research_results()</span>
-        <span class="flow-connector">→</span>
-      </div>
+    <!-- Result merge arrow -->
+    <text x="290" y="342" text-anchor="middle" fill="#34d399" font-size="9" font-weight="600">▲ 结果逐层向上汇聚</text>
 
-      <div class="flow-step" style="--step-color: var(--accent-emerald); --i:3">
-        <div class="step-icon">🔄</div>
-        <h3>递归深入</h3>
-        <p>生成 follow-up 问题，广度减半，depth-1 递归调用自身继续探索</p>
-        <span class="step-code">deep_research(d-1)</span>
-        <span class="flow-connector">→</span>
-      </div>
+    <!-- ===== RIGHT: SINGLE NODE FLOW ===== -->
 
-      <div class="flow-step" style="--step-color: var(--accent-amber); --i:4">
-        <div class="step-icon">✂️</div>
-        <h3>上下文裁剪</h3>
-        <p>保留最新内容优先，裁剪至 25k 词上限，确保不溢出 LLM 窗口</p>
-        <span class="step-code">MAX_WORDS=25000</span>
-      </div>
+    <!-- Flow panel background -->
+    <rect x="575" y="30" width="355" height="340" rx="14" fill="rgba(255,255,255,.02)" stroke="rgba(34,211,238,.12)" stroke-width="1"/>
+    <text x="752" y="55" text-anchor="middle" fill="#22d3ee" font-size="12" font-weight="700">单节点执行流程（自主闭环）</text>
 
-    </div>
-  </section>
+    <!-- Step 1: 生成子查询 -->
+    <g data-tip="Strategic LLM 分析当前问题<br>生成 N 个搜索查询 + 研究目标<br><code>generate_search_queries()</code>" cursor="pointer">
+      <rect x="610" y="72" width="280" height="42" rx="9" fill="rgba(34,211,238,.08)" stroke="rgba(34,211,238,.3)" stroke-width="1"/>
+      <text x="640" y="97" fill="#22d3ee" font-size="12" font-weight="600">❓ 生成子查询</text>
+      <text x="880" y="97" text-anchor="end" fill="#94a3b8" font-size="8" class="mono">generate_search_queries()</text>
+    </g>
+    <line x1="752" y1="114" x2="752" y2="128" stroke="#22d3ee" stroke-width="1.2" marker-end="url(#a-cyan)" class="anim-dash"/>
 
-  <!-- 3. Highlights -->
-  <section class="highlights-section">
-    <div class="section-label">03 五大创新亮点</div>
-    <div class="highlights-grid">
+    <!-- Step 2: 并发检索 -->
+    <g data-tip="Semaphore 控制并发（默认2）<br>每个查询创建独立 GPTResearcher<br>完整执行: 搜索→抓取→提炼" cursor="pointer">
+      <rect x="610" y="130" width="280" height="42" rx="9" fill="rgba(59,130,246,.08)" stroke="rgba(59,130,246,.3)" stroke-width="1"/>
+      <text x="640" y="155" fill="#3b82f6" font-size="12" font-weight="600">🌐 Semaphore 并发检索</text>
+      <text x="880" y="155" text-anchor="end" fill="#94a3b8" font-size="8" class="mono">Semaphore(2)</text>
+    </g>
+    <line x1="752" y1="172" x2="752" y2="186" stroke="#3b82f6" stroke-width="1.2" marker-end="url(#a-blue)" class="anim-dash"/>
 
-      <div class="highlight-card" style="--card-color: var(--accent-cyan); --i:0">
-        <span class="card-num">01</span>
-        <h3>递归广度×深度搜索树</h3>
-        <p>两个参数控制探索规模：<code>breadth</code> 决定每层子查询数，<code>depth</code> 决定递归层数。每层广度自动减半，实现先广后深的逐层聚焦。</p>
-        <span class="tech-tag">breadth=4</span>
-        <span class="tech-tag">depth=2</span>
-        <span class="tech-tag">max(2, b//2)</span>
-      </div>
+    <!-- Step 3: 要点提取 -->
+    <g data-tip="提取结构化 learnings[]<br>关联源 URL → citations{}<br><code>process_research_results()</code>" cursor="pointer">
+      <rect x="610" y="188" width="280" height="42" rx="9" fill="rgba(167,139,250,.08)" stroke="rgba(167,139,250,.3)" stroke-width="1"/>
+      <text x="640" y="213" fill="#a78bfa" font-size="12" font-weight="600">🧠 要点提取 + 引用溯源</text>
+      <text x="880" y="213" text-anchor="end" fill="#94a3b8" font-size="8" class="mono">learnings[] citations{}</text>
+    </g>
+    <line x1="752" y1="230" x2="752" y2="244" stroke="#a78bfa" stroke-width="1.2" marker-end="url(#a-purple)" class="anim-dash"/>
 
-      <div class="highlight-card" style="--card-color: var(--accent-blue); --i:1">
-        <span class="card-num">02</span>
-        <h3>LLM 驱动自主闭环</h3>
-        <p>Strategic LLM 自动生成搜索查询和后续研究问题，形成"问题→搜索→提炼→新问题"的自主研究循环，无需人工干预。</p>
-        <span class="tech-tag">Strategic LLM</span>
-        <span class="tech-tag">ReasoningEfforts.High</span>
-      </div>
+    <!-- Step 4: 递归深入 -->
+    <g data-tip="生成 follow-up 问题<br>广度减半: max(2, breadth//2)<br>depth-1 递归调用自身<br><code>deep_research(depth-1)</code>" cursor="pointer">
+      <rect x="610" y="246" width="280" height="42" rx="9" fill="rgba(52,211,153,.08)" stroke="rgba(52,211,153,.3)" stroke-width="1"/>
+      <text x="640" y="271" fill="#34d399" font-size="12" font-weight="600">🔄 递归深入 (depth-1)</text>
+      <text x="880" y="271" text-anchor="end" fill="#94a3b8" font-size="8" class="mono">breadth = max(2, b//2)</text>
+    </g>
+    <line x1="752" y1="288" x2="752" y2="302" stroke="#34d399" stroke-width="1.2" marker-end="url(#a-emerald)" class="anim-dash"/>
 
-      <div class="highlight-card" style="--card-color: var(--accent-purple); --i:2">
-        <span class="card-num">03</span>
-        <h3>Semaphore 并发控制</h3>
-        <p>asyncio.Semaphore 限制并发数（默认 2），每个子查询创建完整独立的 GPTResearcher 实例，兼顾执行效率与 API 稳定性。</p>
-        <span class="tech-tag">asyncio.Semaphore</span>
-        <span class="tech-tag">concurrency=2</span>
-      </div>
+    <!-- Step 5: 上下文裁剪 -->
+    <g data-tip="从列表末尾（最新内容）倒序保留<br>上限 MAX_CONTEXT_WORDS=25000<br><code>trim_context_to_word_limit()</code>" cursor="pointer">
+      <rect x="610" y="304" width="280" height="42" rx="9" fill="rgba(251,191,36,.08)" stroke="rgba(251,191,36,.3)" stroke-width="1"/>
+      <text x="640" y="329" fill="#fbbf24" font-size="12" font-weight="600">✂️ 上下文裁剪</text>
+      <text x="880" y="329" text-anchor="end" fill="#94a3b8" font-size="8" class="mono">MAX_WORDS = 25000</text>
+    </g>
 
-      <div class="highlight-card" style="--card-color: var(--accent-emerald); --i:3">
-        <span class="card-num">04</span>
-        <h3>学习要点 + 引用溯源</h3>
-        <p>从检索结果中提取结构化 learnings，每条关联源 URL 形成 citations 字典，确保研究结论可追溯、可验证。</p>
-        <span class="tech-tag">learnings[]</span>
-        <span class="tech-tag">citations{}</span>
-      </div>
+    <!-- Recurse loop arrow (step4 back to step1) -->
+    <path d="M893,267 L910,267 Q920,267 920,250 L920,87 Q920,77 910,77 L893,77" fill="none" stroke="rgba(52,211,153,.4)" stroke-width="1.2" stroke-dasharray="5,3" marker-end="url(#a-emerald)"/>
+    <text x="928" y="177" fill="#34d399" font-size="8" class="mono" transform="rotate(90,928,177)">递归调用</text>
 
-      <div class="highlight-card" style="--card-color: var(--accent-amber); --i:4">
-        <span class="card-num">05</span>
-        <h3>上下文词量裁剪</h3>
-        <p>trim_context_to_word_limit 从列表末尾（最新内容）倒序累加，保留最近最相关的内容，确保不超 25,000 词上限。</p>
-        <span class="tech-tag">MAX_CONTEXT_WORDS</span>
-        <span class="tech-tag">reversed()</span>
-      </div>
+    <!-- ===== CONNECTOR: Tree ↔ Flow ===== -->
+    <path d="M532,192 Q555,192 555,130 L555,92 Q555,72 575,72 L608,72" fill="none" stroke="rgba(34,211,238,.2)" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#a-cyan)"/>
+    <text x="562" y="65" fill="#94a3b8" font-size="7.5" class="mono">每个节点执行 →</text>
 
-      <div class="highlight-card" style="--card-color: var(--accent-rose); --i:5">
-        <span class="card-num">+</span>
-        <h3>独立实例隔离</h3>
-        <p>每个子查询实例化独立 GPTResearcher，各自维护 visited_urls / context / sources，避免状态污染，支持 MCP 配置透传。</p>
-        <span class="tech-tag">GPTResearcher()</span>
-        <span class="tech-tag">mcp_configs</span>
-      </div>
+    <!-- ===== BOTTOM: OUTPUT ===== -->
+    <rect x="50" y="380" width="850" height="56" rx="12" fill="rgba(255,255,255,.02)" stroke="rgba(34,211,238,.1)" stroke-width="1"/>
+    <text x="475" y="400" text-anchor="middle" fill="#94a3b8" font-size="10" font-weight="600">输出数据结构</text>
 
-    </div>
-  </section>
+    <text x="130" y="424" text-anchor="middle" fill="#22d3ee" font-size="11" font-weight="600" class="mono">learnings[]</text>
+    <text x="130" y="424" text-anchor="middle" fill="#94a3b8" font-size="8" dy="13">去重学习要点</text>
+    <text x="245" y="418" fill="#94a3b8" font-size="10">→</text>
 
-  <!-- 4. Data Flow -->
-  <section class="dataflow-section">
-    <div class="section-label">04 输出数据结构</div>
-    <div class="dataflow-bar">
+    <text x="340" y="424" text-anchor="middle" fill="#3b82f6" font-size="11" font-weight="600" class="mono">citations{}</text>
+    <text x="340" y="424" text-anchor="middle" fill="#94a3b8" font-size="8" dy="13">要点→URL映射</text>
+    <text x="445" y="418" fill="#94a3b8" font-size="10">→</text>
 
-      <div class="dataflow-item">
-        <div class="df-label">learnings</div>
-        <div class="df-value" style="color: var(--accent-cyan);">List[str]</div>
-        <div class="df-desc">去重后的关键学习要点</div>
-        <span class="df-arrow">→</span>
-      </div>
+    <text x="540" y="424" text-anchor="middle" fill="#a78bfa" font-size="11" font-weight="600" class="mono">visited_urls</text>
+    <text x="540" y="424" text-anchor="middle" fill="#94a3b8" font-size="8" dy="13">去重URL集合</text>
+    <text x="640" y="418" fill="#94a3b8" font-size="10">→</text>
 
-      <div class="dataflow-item">
-        <div class="df-label">citations</div>
-        <div class="df-value" style="color: var(--accent-blue);">Dict[str,str]</div>
-        <div class="df-desc">要点 → 源 URL 映射</div>
-        <span class="df-arrow">→</span>
-      </div>
+    <text x="730" y="424" text-anchor="middle" fill="#34d399" font-size="11" font-weight="600" class="mono">context[]</text>
+    <text x="730" y="424" text-anchor="middle" fill="#94a3b8" font-size="8" dy="13">裁剪后上下文</text>
+    <text x="820" y="418" fill="#94a3b8" font-size="10">→</text>
 
-      <div class="dataflow-item">
-        <div class="df-label">visited_urls</div>
-        <div class="df-value" style="color: var(--accent-purple);">Set[str]</div>
-        <div class="df-desc">已访问 URL 去重集合</div>
-        <span class="df-arrow">→</span>
-      </div>
+    <text x="880" y="424" text-anchor="middle" fill="#fbbf24" font-size="11" font-weight="600" class="mono">sources[]</text>
+    <text x="880" y="424" text-anchor="middle" fill="#94a3b8" font-size="8" dy="13">全部来源记录</text>
 
-      <div class="dataflow-item">
-        <div class="df-label">context</div>
-        <div class="df-value" style="color: var(--accent-emerald);">List[str]</div>
-        <div class="df-desc">裁剪后的研究上下文</div>
-        <span class="df-arrow">→</span>
-      </div>
+    <!-- ===== BOTTOM: 5 HIGHLIGHTS ===== -->
+    <g>
+      <rect x="50" y="458" width="163" height="52" rx="8" fill="rgba(34,211,238,.05)" stroke="rgba(34,211,238,.18)" stroke-width="1"/>
+      <text x="131" y="478" text-anchor="middle" fill="#22d3ee" font-size="10" font-weight="700">递归广度×深度树</text>
+      <text x="131" y="498" text-anchor="middle" fill="#94a3b8" font-size="8">每层广度自动减半聚焦</text>
+    </g>
+    <g>
+      <rect x="223" y="458" width="163" height="52" rx="8" fill="rgba(59,130,246,.05)" stroke="rgba(59,130,246,.18)" stroke-width="1"/>
+      <text x="304" y="478" text-anchor="middle" fill="#3b82f6" font-size="10" font-weight="700">LLM 驱动自主闭环</text>
+      <text x="304" y="498" text-anchor="middle" fill="#94a3b8" font-size="8">问题→搜索→提炼→新问题</text>
+    </g>
+    <g>
+      <rect x="396" y="458" width="163" height="52" rx="8" fill="rgba(167,139,250,.05)" stroke="rgba(167,139,250,.18)" stroke-width="1"/>
+      <text x="477" y="478" text-anchor="middle" fill="#a78bfa" font-size="10" font-weight="700">Semaphore 并发</text>
+      <text x="477" y="498" text-anchor="middle" fill="#94a3b8" font-size="8">独立实例隔离·状态不污染</text>
+    </g>
+    <g>
+      <rect x="569" y="458" width="163" height="52" rx="8" fill="rgba(52,211,153,.05)" stroke="rgba(52,211,153,.18)" stroke-width="1"/>
+      <text x="650" y="478" text-anchor="middle" fill="#34d399" font-size="10" font-weight="700">学习要点+引用溯源</text>
+      <text x="650" y="498" text-anchor="middle" fill="#94a3b8" font-size="8">learnings[] · citations{}</text>
+    </g>
+    <g>
+      <rect x="742" y="458" width="158" height="52" rx="8" fill="rgba(251,191,36,.05)" stroke="rgba(251,191,36,.18)" stroke-width="1"/>
+      <text x="821" y="478" text-anchor="middle" fill="#fbbf24" font-size="10" font-weight="700">上下文词量裁剪</text>
+      <text x="821" y="498" text-anchor="middle" fill="#94a3b8" font-size="8">倒序保留·上限25k词</text>
+    </g>
 
-      <div class="dataflow-item">
-        <div class="df-label">sources</div>
-        <div class="df-value" style="color: var(--accent-amber);">List[dict]</div>
-        <div class="df-desc">全部研究来源记录</div>
-      </div>
-
-    </div>
-  </section>
-
+    <!-- Watermark -->
+    <text x="475" y="565" text-anchor="middle" fill="rgba(148,163,184,.2)" font-size="9" class="mono">DeepResearchSkill · GPT-Researcher</text>
+  </svg>
 </div>
 
-<!-- Tooltip -->
-<div class="tooltip" id="tooltip"></div>
-
+<div class="tip" id="tip"></div>
 <script>
-  // Tooltip logic
-  const tooltip = document.getElementById('tooltip');
-  const tipNodes = document.querySelectorAll('[data-tip]');
-
-  tipNodes.forEach(node => {
-    node.addEventListener('mouseenter', e => {
-      tooltip.innerHTML = node.getAttribute('data-tip');
-      tooltip.classList.add('visible');
-    });
-
-    node.addEventListener('mousemove', e => {
-      const x = e.clientX + 16;
-      const y = e.clientY + 12;
-      const maxX = window.innerWidth - tooltip.offsetWidth - 20;
-      const maxY = window.innerHeight - tooltip.offsetHeight - 20;
-      tooltip.style.left = Math.min(x, maxX) + 'px';
-      tooltip.style.top = Math.min(y, maxY) + 'px';
-    });
-
-    node.addEventListener('mouseleave', () => {
-      tooltip.classList.remove('visible');
-    });
+const t=document.getElementById('tip');
+document.querySelectorAll('[data-tip]').forEach(el=>{
+  el.addEventListener('mouseenter',()=>{t.innerHTML=el.getAttribute('data-tip');t.classList.add('on');});
+  el.addEventListener('mousemove',e=>{
+    t.style.left=Math.min(e.clientX+14,innerWidth-t.offsetWidth-16)+'px';
+    t.style.top=Math.min(e.clientY+10,innerHeight-t.offsetHeight-16)+'px';
   });
+  el.addEventListener('mouseleave',()=>t.classList.remove('on'));
+});
 </script>
-
 </body>
 </html>
