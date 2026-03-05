@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI-Researcher 自动化迭代实验</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+:root {
+  --bg: #0a0810;
+  --amber: #fbbf24;
+  --orange: #f97316;
+  --rose: #fb7185;
+  --text: #e8e2f0;
+  --muted: #9b8fb8;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Noto Sans SC',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; display:flex; align-items:center; justify-content:center; }
+body::before {
+  content:''; position:fixed; inset:0; pointer-events:none;
+  background: radial-gradient(ellipse 60% 50% at 40% 40%, rgba(251,191,36,.05), transparent),
+              radial-gradient(ellipse 50% 50% at 65% 65%, rgba(249,115,22,.04), transparent);
+}
+
+.diagram {
+  position:relative; z-index:1; width:960px; padding:48px 40px 44px;
+  background:rgba(16,12,24,.92); border:1px solid rgba(251,191,36,.12);
+  border-radius:20px; backdrop-filter:blur(12px);
+  box-shadow: 0 0 80px rgba(251,191,36,.04), 0 24px 64px rgba(0,0,0,.5);
+}
+.diagram::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:2px; border-radius:20px 20px 0 0;
+  background:linear-gradient(90deg, transparent 5%, var(--amber), var(--orange), var(--rose), transparent 95%);
+}
+
+/* Title */
+.title { text-align:center; margin-bottom:36px; }
+.title h1 {
+  font-size:1.6rem; font-weight:900;
+  background:linear-gradient(135deg,var(--amber),var(--orange),var(--rose));
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+}
+.title p { font-family:'IBM Plex Mono',monospace; font-size:.74rem; color:var(--muted); margin-top:4px; }
+
+/* SVG Flow */
+svg { display:block; margin:0 auto; }
+svg text { font-family:'Noto Sans SC',sans-serif; }
+svg .mono { font-family:'IBM Plex Mono',monospace; }
+
+/* Animated dashes */
+@keyframes dash { to { stroke-dashoffset: -20; } }
+.flow-arrow { stroke-dasharray:8,4; animation: dash 1.2s linear infinite; }
+.flow-arrow-slow { stroke-dasharray:10,5; animation: dash 2s linear infinite; }
+
+/* Tooltip */
+.tip {
+  position:fixed; background:rgba(10,8,16,.97); border:1px solid rgba(251,191,36,.25);
+  border-radius:8px; padding:10px 14px; font-size:.72rem; color:var(--text);
+  max-width:240px; pointer-events:none; opacity:0; transition:opacity .15s;
+  z-index:1000; line-height:1.5; box-shadow:0 6px 20px rgba(0,0,0,.5);
+}
+.tip.on { opacity:1; }
+.tip code { font-family:'IBM Plex Mono',monospace; font-size:.64rem; background:rgba(251,191,36,.12); padding:1px 4px; border-radius:3px; color:var(--amber); }
+
+@media(max-width:1000px){ .diagram{width:96vw;padding:32px 20px;} svg{width:100%;height:auto;} }
+</style>
+</head>
+<body>
+
+<div class="diagram">
+  <div class="title">
+    <h1>AI-Researcher 自动化迭代实验</h1>
+    <p>内层闭环: ML Agent ⇄ Judge Agent &nbsp;→&nbsp; 外层精炼: Exp Analyser</p>
+  </div>
+
+  <svg viewBox="0 0 880 520" width="880" height="520">
+    <defs>
+      <marker id="ah-amber" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="#fbbf24"/>
+      </marker>
+      <marker id="ah-orange" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="#f97316"/>
+      </marker>
+      <marker id="ah-rose" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="#fb7185"/>
+      </marker>
+
+      <!-- Inner loop glow -->
+      <filter id="glow-amber"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      <filter id="glow-orange"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    </defs>
+
+    <!-- ========== OUTER LOOP BACKGROUND ========== -->
+    <rect x="30" y="20" width="820" height="480" rx="16" fill="none" stroke="rgba(249,115,22,.18)" stroke-width="1.5" stroke-dasharray="6,3"/>
+    <text x="440" y="50" text-anchor="middle" fill="#f97316" font-size="13" font-weight="700" opacity=".7" class="mono">外层循环  EXP_ITER_TIMES = 2</text>
+
+    <!-- ========== INNER LOOP BACKGROUND ========== -->
+    <rect x="70" y="70" width="530" height="360" rx="14" fill="rgba(251,191,36,.03)" stroke="rgba(251,191,36,.2)" stroke-width="1.5"/>
+    <text x="335" y="97" text-anchor="middle" fill="#fbbf24" font-size="13" font-weight="700" class="mono">内层循环  max_iter_times</text>
+
+    <!-- ===== NODE: ML Agent ===== -->
+    <g data-tip="Docker 沙箱中生成完整项目<br>data/ model/ training/ testing/<br>禁止 pass / ... / TODO<br>使用 COMPLETION_MODEL" cursor="pointer">
+      <rect x="100" y="130" width="200" height="72" rx="12" fill="rgba(251,191,36,.08)" stroke="rgba(251,191,36,.35)" stroke-width="1.5"/>
+      <text x="200" y="160" text-anchor="middle" fill="#fbbf24" font-size="15" font-weight="700">💻 ML Agent</text>
+      <text x="200" y="182" text-anchor="middle" fill="#9b8fb8" font-size="11">Docker 内生成完整代码并执行</text>
+    </g>
+
+    <!-- ===== NODE: 沙箱执行 ===== -->
+    <g data-tip="GPU 训练 2 epochs<br>TCP:7020 流式输出<br>真实数据集（非 toy data）<br>完整训练 + 测试流程" cursor="pointer">
+      <rect x="100" y="250" width="200" height="72" rx="12" fill="rgba(251,191,36,.06)" stroke="rgba(251,191,36,.25)" stroke-width="1"/>
+      <text x="200" y="280" text-anchor="middle" fill="#fbbf24" font-size="14" font-weight="600">⚡ 沙箱执行</text>
+      <text x="200" y="300" text-anchor="middle" fill="#9b8fb8" font-size="11">GPU 训练 2 epochs + 测试</text>
+    </g>
+
+    <!-- ===== NODE: Judge Agent ===== -->
+    <g data-tip="逐条对照学术创新点审查<br>检查每个数学公式实现<br>验证数据集真实性<br>输出 PASS 或修复建议" cursor="pointer">
+      <rect x="370" y="190" width="200" height="72" rx="12" fill="rgba(249,115,22,.08)" stroke="rgba(249,115,22,.35)" stroke-width="1.5"/>
+      <text x="470" y="220" text-anchor="middle" fill="#f97316" font-size="15" font-weight="700">⚖️ Judge Agent</text>
+      <text x="470" y="242" text-anchor="middle" fill="#9b8fb8" font-size="11">逐条对照创新点审查实现</text>
+    </g>
+
+    <!-- FLOW: ML Agent → 沙箱执行 -->
+    <line x1="200" y1="202" x2="200" y2="248" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#ah-amber)" class="flow-arrow"/>
+
+    <!-- FLOW: 沙箱执行 → Judge Agent -->
+    <path d="M300,286 L340,286 Q360,286 360,266 L360,226 Q360,206 380,206 L368,206" fill="none" stroke="#f97316" stroke-width="1.5" marker-end="url(#ah-orange)" class="flow-arrow"/>
+    <text x="362" y="258" fill="#9b8fb8" font-size="9" class="mono" text-anchor="end">执行结果</text>
+
+    <!-- FLOW: Judge Agent → ML Agent (feedback loop) -->
+    <path d="M470,190 L470,140 Q470,120 450,120 L320,120 Q300,120 300,140 L300,148" fill="none" stroke="#fbbf24" stroke-width="1.8" marker-end="url(#ah-amber)" class="flow-arrow" filter="url(#glow-amber)"/>
+    <text x="385" y="114" fill="#fbbf24" font-size="10" font-weight="600" text-anchor="middle">修复建议 → 迭代修改</text>
+
+    <!-- FLOW: Judge Agent PASS → 提交 -->
+    <path d="M470,262 L470,340 Q470,360 490,360 L620,360" fill="none" stroke="#f97316" stroke-width="1.8" marker-end="url(#ah-orange)" class="flow-arrow-slow"/>
+    <text x="520" y="330" fill="#f97316" font-size="10" font-weight="600" class="mono">PASS →</text>
+
+    <!-- PASS label on Judge -->
+    <rect x="535" y="198" width="42" height="18" rx="4" fill="rgba(251,191,36,.12)"/>
+    <text x="556" y="211" text-anchor="middle" fill="#fbbf24" font-size="9" font-weight="700" class="mono">PASS</text>
+    <line x1="556" y1="216" x2="556" y2="262" stroke="rgba(251,191,36,.2)" stroke-width="1" stroke-dasharray="3,2"/>
+
+    <!-- ===== OUTER: 提交 ===== -->
+    <g data-tip="内层 PASS 后提交<br>调整 epoch 为适当值<br>获取完整统计结果" cursor="pointer">
+      <rect x="620" y="100" width="190" height="64" rx="12" fill="rgba(249,115,22,.08)" stroke="rgba(249,115,22,.3)" stroke-width="1.5"/>
+      <text x="715" y="127" text-anchor="middle" fill="#f97316" font-size="14" font-weight="700">📤 代码提交</text>
+      <text x="715" y="147" text-anchor="middle" fill="#9b8fb8" font-size="10">正式训练，获取统计结果</text>
+    </g>
+
+    <!-- ===== OUTER: Exp Analyser ===== -->
+    <g data-tip="独立分析 Agent<br>生成 analysis_report<br>规划 further_plan<br>对比参考论文实验" cursor="pointer">
+      <rect x="620" y="200" width="190" height="64" rx="12" fill="rgba(251,113,133,.08)" stroke="rgba(251,113,133,.3)" stroke-width="1.5"/>
+      <text x="715" y="227" text-anchor="middle" fill="#fb7185" font-size="14" font-weight="700">📊 Exp Analyser</text>
+      <text x="715" y="247" text-anchor="middle" fill="#9b8fb8" font-size="10">结果分析 + 进一步实验规划</text>
+    </g>
+
+    <!-- ===== OUTER: 扩展实验 ===== -->
+    <g data-tip="消融实验 Ablation<br>敏感性分析 Sensitivity<br>结果可视化<br>参考论文其他实验" cursor="pointer">
+      <rect x="620" y="300" width="190" height="64" rx="12" fill="rgba(251,113,133,.06)" stroke="rgba(251,113,133,.2)" stroke-width="1"/>
+      <text x="715" y="327" text-anchor="middle" fill="#fb7185" font-size="13" font-weight="600">🧪 扩展实验</text>
+      <text x="715" y="346" text-anchor="middle" fill="#9b8fb8" font-size="10">消融 · 敏感性 · 可视化</text>
+    </g>
+
+    <!-- ===== OUTER: ML Agent 精炼 ===== -->
+    <g data-tip="ML Agent 根据 further_plan<br>执行补充实验<br>收集完整结果<br>准备论文数据" cursor="pointer">
+      <rect x="620" y="400" width="190" height="64" rx="12" fill="rgba(249,115,22,.06)" stroke="rgba(249,115,22,.2)" stroke-width="1"/>
+      <text x="715" y="427" text-anchor="middle" fill="#f97316" font-size="13" font-weight="600">💻 精炼执行</text>
+      <text x="715" y="446" text-anchor="middle" fill="#9b8fb8" font-size="10">ML Agent 补充实验</text>
+    </g>
+
+    <!-- OUTER FLOW: PASS → 提交 (vertical entry) -->
+    <path d="M620,360 Q640,360 640,340 L640,164" fill="none" stroke="#f97316" stroke-width="1.5" class="flow-arrow-slow" marker-end="url(#ah-orange)"/>
+
+    <!-- OUTER FLOW: 提交 → Exp Analyser -->
+    <line x1="715" y1="164" x2="715" y2="198" stroke="#fb7185" stroke-width="1.5" marker-end="url(#ah-rose)" class="flow-arrow-slow"/>
+
+    <!-- OUTER FLOW: Exp Analyser → 扩展实验 -->
+    <line x1="715" y1="264" x2="715" y2="298" stroke="#fb7185" stroke-width="1.5" marker-end="url(#ah-rose)" class="flow-arrow-slow"/>
+
+    <!-- OUTER FLOW: 扩展实验 → 精炼执行 -->
+    <line x1="715" y1="364" x2="715" y2="398" stroke="#f97316" stroke-width="1.5" marker-end="url(#ah-orange)" class="flow-arrow-slow"/>
+
+    <!-- OUTER LOOP: 精炼执行 → 提交 (loop back) -->
+    <path d="M810,432 L840,432 Q855,432 855,416 L855,120 Q855,100 835,100 L812,100" fill="none" stroke="#f97316" stroke-width="1.5" stroke-dasharray="6,3" marker-end="url(#ah-orange)" class="flow-arrow-slow"/>
+    <text x="860" y="270" fill="#f97316" font-size="9" font-weight="600" class="mono" transform="rotate(90,860,270)">↻ 继续精炼</text>
+
+    <!-- ===== LABELS ===== -->
+    <text x="335" y="408" text-anchor="middle" fill="rgba(251,191,36,.3)" font-size="40" font-weight="900">内层</text>
+    <text x="715" y="488" text-anchor="middle" fill="rgba(249,115,22,.25)" font-size="28" font-weight="900">外层</text>
+
+  </svg>
+</div>
+
+<div class="tip" id="tip"></div>
+<script>
+const t=document.getElementById('tip');
+document.querySelectorAll('[data-tip]').forEach(el=>{
+  el.addEventListener('mouseenter',()=>{t.innerHTML=el.getAttribute('data-tip');t.classList.add('on');});
+  el.addEventListener('mousemove',e=>{
+    t.style.left=Math.min(e.clientX+14,innerWidth-t.offsetWidth-16)+'px';
+    t.style.top=Math.min(e.clientY+10,innerHeight-t.offsetHeight-16)+'px';
+  });
+  el.addEventListener('mouseleave',()=>t.classList.remove('on'));
+});
+</script>
+</body>
+</html>
