@@ -1,0 +1,83 @@
+{
+  // ═══════════════════════════════════════════════════════════════
+  // OpenClaw Researcher Assistant — Gateway Configuration v3.0
+  // Deploy to: ~/.openclaw/openclaw.json
+  // ═══════════════════════════════════════════════════════════════
+
+  // ─── Agent definitions ──────────────────────────────────────────
+  agents: {
+    defaults: {
+      workspace: "~/.openclaw/workspace",
+      sandbox: {
+        mode: "off",                           // ⚠️ MUST be off — sub-agents need state/ access
+      },
+      subagents: {
+        allowAgents: ["*"],                    // Allow spawning any agentId
+        archiveAfterMinutes: 60,               // Default 60, adjust if needed
+        runTimeoutSeconds: 1800,               // ⚠️ Default is 0 (no timeout) — must set explicitly
+        maxConcurrent: 8,
+      },
+    },
+
+    list: [
+      {
+        id: "main",
+        model: "anthropic/claude-opus-4-6",
+        thinking: { level: "high" },
+      },
+      {
+        id: "researcher",
+        model: "anthropic/claude-sonnet-4-6",
+        thinking: { level: "low" },
+        tools: { deny: ["browser", "canvas", "cron"] },
+      },
+      {
+        id: "planner",
+        model: "anthropic/claude-opus-4-6",
+        thinking: { level: "high" },
+        tools: { deny: ["browser", "canvas", "cron"] },
+      },
+      {
+        id: "coder",
+        model: "anthropic/claude-sonnet-4-6",
+        thinking: { level: "medium" },
+        tools: { deny: ["browser", "canvas", "cron"] },
+      },
+      {
+        id: "critic",
+        model: "anthropic/claude-opus-4-6",
+        thinking: { level: "high" },
+        tools: { deny: ["browser", "canvas", "cron"] },
+      },
+      {
+        id: "reporter",
+        model: "anthropic/claude-sonnet-4-6",
+        thinking: { level: "low" },
+        tools: { deny: ["browser", "canvas", "cron"] },
+      },
+    ],
+  },
+
+  // ─── Channel configuration ──────────────────────────────────────
+  channels: {
+    webchat: { enabled: true },
+    telegram: {
+      enabled: false,                          // Enable after setting TELEGRAM_BOT_TOKEN
+      botToken: "$TELEGRAM_BOT_TOKEN",
+      dmPolicy: "allowlist",
+      allowFrom: ["tg:YOUR_ID"],
+    },
+  },
+
+  // ─── Tool policies ─────────────────────────────────────────────
+  tools: {
+    exec: {
+      timeout: 3600,                           // ⚠️ Default 1800s — ASR experiments need 3600
+    },
+    subagents: {
+      tools: {
+        deny: ["browser", "canvas", "cron", "discord"],
+      },
+    },
+  },
+}

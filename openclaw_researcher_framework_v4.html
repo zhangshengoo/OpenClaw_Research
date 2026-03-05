@@ -1,0 +1,1390 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenClaw Researcher Assistant — 原生实现框架</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Sora:wght@300;400;600;700;800&display=swap');
+:root{
+  --bg:#07090f;--s1:#0d1117;--s2:#161b27;--s3:#1a2030;
+  --border:#1e2a3a;--border2:#263040;
+  --cyan:#00d4ff;--purple:#7c3aed;--green:#10b981;--amber:#f59e0b;--red:#ef4444;--pink:#ec4899;
+  --text:#c8d4e0;--muted:#4a6070;--bright:#f0f6fc;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-size:13.5px;line-height:1.65}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:linear-gradient(rgba(0,212,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,.025) 1px,transparent 1px);
+  background-size:48px 48px}
+.wrap{max-width:1380px;margin:0 auto;padding:48px 36px 96px;position:relative;z-index:1}
+
+/* NAV */
+nav{position:sticky;top:0;z-index:50;background:rgba(7,9,15,.92);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border);padding:10px 36px;display:flex;align-items:center;gap:24px;
+  font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.5px}
+.nav-logo{color:var(--cyan);font-weight:700;font-size:11px;letter-spacing:2px;margin-right:16px}
+.nav-logo span{color:var(--muted)}
+nav a{color:var(--muted);text-decoration:none;text-transform:uppercase;transition:color .15s}
+nav a:hover{color:var(--cyan)}
+
+/* HEADER */
+header{text-align:center;padding:72px 0 56px;margin-bottom:72px;border-bottom:1px solid var(--border)}
+.h-tag{display:inline-flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;
+  font-size:10px;letter-spacing:3px;color:var(--cyan);border:1px solid rgba(0,212,255,.25);
+  padding:5px 16px;text-transform:uppercase;margin-bottom:28px}
+.h-tag .dot{width:6px;height:6px;border-radius:50%;background:var(--cyan);animation:blink 1.4s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+h1{font-size:clamp(32px,4.5vw,56px);font-weight:800;letter-spacing:-2px;line-height:1.05;
+  background:linear-gradient(135deg,var(--bright) 0%,var(--cyan) 45%,var(--purple) 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:16px}
+.h-sub{color:var(--muted);font-size:15px;font-weight:300;max-width:640px;margin:0 auto 28px}
+.h-badges{display:flex;justify-content:center;gap:8px;flex-wrap:wrap}
+
+/* BADGES */
+.badge{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;
+  padding:3px 10px;letter-spacing:.5px}
+.b-cyan{background:rgba(0,212,255,.1);color:var(--cyan);border:1px solid rgba(0,212,255,.25)}
+.b-pur {background:rgba(124,58,237,.1);color:#a78bfa;border:1px solid rgba(124,58,237,.25)}
+.b-grn {background:rgba(16,185,129,.1);color:var(--green);border:1px solid rgba(16,185,129,.25)}
+.b-amb {background:rgba(245,158,11,.1);color:var(--amber);border:1px solid rgba(245,158,11,.25)}
+.b-red {background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.b-pink{background:rgba(236,72,153,.1);color:var(--pink);border:1px solid rgba(236,72,153,.25)}
+
+/* SECTION */
+.sec{margin-bottom:80px}
+.sec-label{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:3px;
+  text-transform:uppercase;color:var(--cyan);display:flex;align-items:center;gap:12px;margin-bottom:28px}
+.sec-label::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--border2),transparent)}
+h2{font-size:22px;font-weight:700;color:var(--bright);margin-bottom:6px;letter-spacing:-.5px}
+h3{font-size:14px;font-weight:700;color:var(--bright);margin:20px 0 10px;padding-left:12px;border-left:2px solid var(--cyan)}
+
+/* ALERT */
+.alert{background:rgba(0,212,255,.04);border:1px solid rgba(0,212,255,.18);padding:16px 20px;margin-bottom:28px;font-size:13px;line-height:1.7}
+.alert strong{color:var(--cyan)}
+.alert.amber{background:rgba(245,158,11,.04);border-color:rgba(245,158,11,.2)}
+.alert.amber strong{color:var(--amber)}
+.alert.purple{background:rgba(124,58,237,.04);border-color:rgba(124,58,237,.2)}
+.alert.purple strong{color:#a78bfa}
+
+/* MECHANISM TABLE */
+.mmap{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--border);margin-bottom:28px}
+.mmap-head{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;
+  padding:10px 16px;border-bottom:1px solid var(--border);background:var(--s2)}
+.mmap-head.new{color:var(--cyan)}
+.mmap-cell{padding:10px 16px;border-bottom:1px solid rgba(30,42,58,.5);font-size:12px;vertical-align:top}
+.mmap-cell.mid{border-left:1px solid var(--border);border-right:1px solid var(--border);
+  text-align:center;color:var(--muted);font-size:16px;display:flex;align-items:center;justify-content:center}
+.mmap-cell.new-v{color:var(--cyan);font-family:'JetBrains Mono',monospace;font-size:11px}
+.mmap-cell small{color:var(--muted);font-size:11px;display:block;margin-top:2px;font-family:'Sora',sans-serif}
+
+/* ARCH DIAGRAM */
+.arch{background:var(--s1);border:1px solid var(--border);padding:32px 28px;margin-bottom:32px;position:relative}
+.arch-title{text-align:center;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--cyan);font-weight:600;letter-spacing:1px;margin-bottom:24px;padding-bottom:16px;border-bottom:1px dashed var(--border)}
+.arch-title small{display:block;font-weight:400;font-size:10px;color:var(--muted);margin-top:4px;letter-spacing:.5px}
+.arch-top{display:grid;grid-template-columns:1fr auto 1fr;gap:20px;align-items:center;margin-bottom:24px}
+.arch-chan{background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);padding:14px 18px;text-align:center}
+.arch-chan .al{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--amber);font-weight:600}
+.arch-chan .as{font-size:10px;color:var(--muted);margin-top:4px}
+.arch-arrow{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);text-align:center;white-space:nowrap}
+.arch-orch{background:rgba(0,212,255,.05);border:1px solid rgba(0,212,255,.2);padding:14px 18px}
+.arch-orch .al{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--cyan);font-weight:600}
+.arch-orch .as{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);margin-top:4px;line-height:1.8}
+.arch-spawn-label{text-align:center;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:12px;letter-spacing:1px}
+.arch-spawn-label span{color:var(--cyan)}
+.arch-agents{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:24px}
+.arch-ag{padding:12px 10px;text-align:center;border:1px solid var(--border);background:var(--s2)}
+.arch-ag.opus{border-color:rgba(124,58,237,.3);background:rgba(124,58,237,.04)}
+.arch-ag.sonnet{border-color:rgba(0,212,255,.2);background:rgba(0,212,255,.04)}
+.arch-ag .ag-name{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:var(--bright);margin-bottom:2px}
+.arch-ag .ag-model{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--muted)}
+.arch-ag.opus .ag-model{color:#a78bfa}
+.arch-ag.sonnet .ag-model{color:var(--cyan)}
+.arch-ag .ag-skill{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted);margin-top:2px}
+.arch-connector{text-align:center;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--amber);margin:8px 0;letter-spacing:1px}
+.arch-layer{border:1px solid var(--border);padding:14px 18px;margin-bottom:12px;display:flex;align-items:center;gap:12px}
+.arch-layer .ll{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;white-space:nowrap}
+.arch-layer .ld{font-size:11px;color:var(--muted);line-height:1.5}
+.arch-layer.workspace{background:rgba(245,158,11,.04);border-color:rgba(245,158,11,.2)}
+.arch-layer.workspace .ll{color:var(--amber)}
+.arch-layer.api{background:rgba(16,185,129,.04);border-color:rgba(16,185,129,.2)}
+.arch-layer.api .ll{color:var(--green)}
+
+/* PIPELINE */
+.pipeline{display:grid;grid-template-columns:repeat(7,1fr);border:1px solid var(--border);margin-bottom:32px}
+@media(max-width:900px){.pipeline{grid-template-columns:1fr 1fr}}
+.p-stage{padding:18px 14px;border-right:1px solid var(--border);background:var(--s1)}
+.p-stage:last-child{border-right:none}
+.p-stage:hover{background:var(--s2)}
+.p-num{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:6px;letter-spacing:1px}
+.p-icon{font-size:22px;margin-bottom:8px}
+.p-title{font-size:12px;font-weight:700;color:var(--bright);margin-bottom:4px;line-height:1.3}
+.p-mech{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--cyan);margin-bottom:4px}
+.p-desc{font-size:11px;color:var(--muted);line-height:1.5;margin-top:6px}
+.p-human{background:rgba(245,158,11,.05);border:1px dashed rgba(245,158,11,.3);
+  padding:5px 8px;margin-top:8px;font-size:10px;color:var(--amber);font-family:'JetBrains Mono',monospace}
+
+/* AGENT CARDS */
+.agent-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:32px}
+@media(max-width:900px){.agent-grid{grid-template-columns:1fr 1fr}}
+.a-card{background:var(--s1);border:1px solid var(--border);padding:20px;position:relative;overflow:hidden;transition:border-color .2s}
+.a-card:hover{border-color:var(--cyan)}
+.a-card::before{content:'';position:absolute;top:0;left:0;width:2px;height:100%}
+.a-card.ac-opus::before{background:var(--purple)}.a-card.ac-sonnet::before{background:var(--cyan)}
+.a-card.ac-haiku::before{background:var(--green)}.a-card.ac-local::before{background:var(--amber)}
+.a-icon{font-size:24px;margin-bottom:10px}
+.a-name{font-size:15px;font-weight:700;color:var(--bright);margin-bottom:2px}
+.a-role{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.a-mech{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--cyan);
+  background:rgba(0,212,255,.06);border:1px solid rgba(0,212,255,.12);padding:4px 10px;display:inline-block;margin-bottom:10px}
+.a-desc{font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:12px}
+.a-tags{display:flex;flex-wrap:wrap;gap:5px}
+.a-tag{font-family:'JetBrains Mono',monospace;font-size:9.5px;padding:2px 7px;border:1px solid var(--border);color:var(--muted);background:var(--s2)}
+
+/* SKILL CARDS */
+.skill-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:32px}
+@media(max-width:700px){.skill-grid{grid-template-columns:1fr}}
+.sk-card{background:var(--s1);border:1px solid var(--border);padding:20px}
+.sk-name{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--cyan);font-weight:600;margin-bottom:6px}
+.sk-path{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:10px}
+.sk-desc{font-size:12px;color:var(--text);line-height:1.6;margin-bottom:10px}
+.sk-uses{font-size:11px;color:var(--muted)}.sk-uses span{color:var(--amber)}
+
+/* STATE FILES */
+.state-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:32px}
+@media(max-width:800px){.state-grid{grid-template-columns:1fr 1fr}}
+.sf-card{background:var(--s1);border:1px solid var(--border);padding:14px 16px}
+.sf-file{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--amber);margin-bottom:4px}
+.sf-who{font-size:11px;color:var(--muted)}.sf-who strong{color:var(--text)}
+
+/* CODE */
+.code-wrap{background:#010409;border:1px solid var(--border);margin-bottom:28px}
+.code-head{display:flex;justify-content:space-between;align-items:center;
+  padding:9px 16px;border-bottom:1px solid var(--border);background:var(--s2)}
+.cf{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--cyan)}
+.cl{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted)}
+pre{padding:20px;font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.75;overflow-x:auto}
+.kw{color:#ff79c6}.fn{color:#50fa7b}.str{color:#f1fa8c}
+.cm{color:#4a5568;font-style:italic}.ty{color:#8be9fd}.num{color:#bd93f9}.op{color:var(--cyan)}
+
+/* TABLE */
+table{width:100%;border-collapse:collapse;margin-bottom:28px;font-size:13px}
+th{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:2px;text-transform:uppercase;
+  color:var(--muted);text-align:left;padding:9px 14px;border-bottom:1px solid var(--border);background:var(--s2)}
+td{padding:10px 14px;border-bottom:1px solid rgba(30,42,58,.5);vertical-align:top;line-height:1.5}
+tr:hover td{background:rgba(255,255,255,.012)}
+td:first-child{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--cyan)}
+
+/* COST GRID */
+.cost-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--border);border:1px solid var(--border);margin-bottom:28px}
+.cg{background:var(--s1);padding:16px;display:flex;flex-direction:column;gap:4px}
+.cg-l{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
+.cg-v{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;color:var(--bright)}
+.cg-n{font-size:11px;color:var(--muted)}
+
+/* TWO COL */
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:28px}
+@media(max-width:700px){.two{grid-template-columns:1fr}}
+
+/* RISK */
+.risk{border:1px solid var(--border);margin-bottom:28px}
+.risk-head{display:grid;grid-template-columns:180px 80px 1fr;background:var(--s2);border-bottom:1px solid var(--border)}
+.risk-head div{padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);border-right:1px solid var(--border)}
+.risk-row{display:grid;grid-template-columns:180px 80px 1fr;border-bottom:1px solid rgba(30,42,58,.5)}
+.risk-row:last-child{border-bottom:none}
+.risk-row:hover{background:rgba(255,255,255,.012)}
+.risk-row div{padding:10px 14px;font-size:12px;border-right:1px solid var(--border)}
+.risk-row div:last-child{border-right:none;color:var(--muted)}
+.risk-high{color:var(--red)}.risk-med{color:var(--amber)}.risk-low{color:var(--green)}
+
+/* FILE TREE */
+.tree{background:var(--s1);border:1px solid var(--border);padding:20px 24px;margin-bottom:28px;overflow-x:auto}
+.tree-root{font-family:'JetBrains Mono',monospace;font-size:12px;color:#8be9fd;font-weight:600;margin-bottom:12px}
+.tree-group{margin-bottom:14px}
+.tree-group:last-child{margin-bottom:0}
+.tree-item{display:grid;grid-template-columns:auto 1fr;gap:10px;padding:3px 0;font-family:'JetBrains Mono',monospace;font-size:11.5px;line-height:1.6}
+.tree-item.indent-1{padding-left:20px}
+.tree-item.indent-2{padding-left:40px}
+.tree-name{white-space:nowrap}
+.tree-name.hi{color:var(--cyan);font-weight:600}
+.tree-name.dir{color:#8be9fd;font-weight:600}
+.tree-name.new{color:var(--green)}
+.tree-name.file{color:var(--text)}
+.tree-desc{color:var(--muted);font-style:italic;font-size:11px;font-family:'Sora',sans-serif}
+
+footer{text-align:center;padding:40px 0 0;border-top:1px solid var(--border);margin-top:64px;
+  font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:1px;line-height:2}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">🦞 OPENCLAW<span>/researcher v2</span></div>
+  <a href="#concept">概念</a>
+  <a href="#config">配置</a>
+  <a href="#pipeline">流程</a>
+  <a href="#agents">Agents</a>
+  <a href="#skills">Skills</a>
+  <a href="#code">代码</a>
+  <a href="#state">状态</a>
+  <a href="#cost">费用</a>
+</nav>
+
+<div class="wrap">
+
+<header>
+  <div class="h-tag"><div class="dot"></div>OpenClaw Native · v2.0 · 2026-03 · 完全重写</div>
+  <h1>OpenClaw Researcher<br>Assistant Framework</h1>
+  <p class="h-sub">基于 OpenClaw 原生机制实现<br>
+  ASR 科研自动化：sessions_spawn · SKILL.md · bash tool · 本地CPU · Claude API</p>
+  <div class="h-badges">
+    <span class="badge b-cyan">OpenClaw Gateway (Node.js)</span>
+    <span class="badge b-pur">Opus 4.6 · 规划/批判</span>
+    <span class="badge b-cyan">Sonnet 4.6 · 研究/编码</span>
+    <span class="badge b-grn">Haiku 4.5 · 轻量调用</span>
+    <span class="badge b-amb">voyage-3.5 · Embedding</span>
+    <span class="badge b-pink">本地 CPU · 零 GPU</span>
+  </div>
+</header>
+
+<!-- ══ 00 · 核心认知 ══ -->
+<div class="sec" id="concept">
+  <div class="sec-label">00 · 核心认知 — OpenClaw 不是 Python 框架</div>
+
+  <div class="alert">
+    <strong>重要前提：</strong>OpenClaw 是 <strong>Node.js 个人 AI 助手 Gateway</strong>，
+    核心是 WebSocket 控制平面（ws://127.0.0.1:18789）。
+    本框架完全基于 OpenClaw 原生机制实现所有编排能力。
+  </div>
+
+  <h3>核心机制一览</h3>
+  <table>
+    <thead><tr><th>能力</th><th>OpenClaw 机制</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td>Agent 间编排</td><td>sessions_spawn / sessions_send</td><td>OpenClaw 内置 Agent 间编排工具</td></tr>
+      <tr><td>Agent 定义</td><td>workspace/skills/*/SKILL.md</td><td>AgentSkills Markdown，Gateway 启动时自动注入</td></tr>
+      <tr><td>状态持久化</td><td>state/*.json 文件</td><td>bash 读写，持久化，Gateway 重启不丢</td></tr>
+      <tr><td>模型路由</td><td>openclaw.json agents.list</td><td>per-agentId 绑定不同模型，无代码配置</td></tr>
+      <tr><td>系统命令执行</td><td>bash tool (exec)</td><td>OpenClaw 内置工具，Agent 直接调用</td></tr>
+      <tr><td>断点续跑</td><td>Gateway daemon + state/ 文件</td><td>launchd/systemd 守护，天然持久</td></tr>
+      <tr><td>人工交互</td><td>WebChat / Telegram / WhatsApp</td><td>OpenClaw 内置多渠道，零额外代码</td></tr>
+      <tr><td>实验隔离</td><td>Python venv 隔离（sandbox 关闭）</td><td>⚠️ sandbox.mode 必须 "off"，否则子 Agent 无法访问 state/ 文件</td></tr>
+    </tbody>
+  </table>
+
+  <div class="arch">
+    <div class="arch-title">OpenClaw Gateway<small>ws://127.0.0.1:18789 · Node.js</small></div>
+
+    <!-- 上层：渠道 + Orchestrator -->
+    <div class="arch-top">
+      <div class="arch-chan">
+        <div class="al">WebChat / Telegram</div>
+        <div class="as">内置多渠道，零额外代码</div>
+      </div>
+      <div class="arch-arrow">◄─ human review ─►</div>
+      <div class="arch-orch">
+        <div class="al">Orchestrator Session (main)</div>
+        <div class="as">model: claude-opus-4-6<br>AGENTS.md + Skills 自动注入<br>thinking: high (extended)</div>
+      </div>
+    </div>
+
+    <!-- 中层：sessions_spawn 子 Agent -->
+    <div class="arch-spawn-label">▼ <span>sessions_spawn × N</span> ▼</div>
+    <div class="arch-agents">
+      <div class="arch-ag sonnet">
+        <div class="ag-name">Research</div>
+        <div class="ag-model">Sonnet 4.6</div>
+        <div class="ag-skill">SKILL.md</div>
+      </div>
+      <div class="arch-ag opus">
+        <div class="ag-name">Planner</div>
+        <div class="ag-model">Opus 4.6</div>
+        <div class="ag-skill">SKILL.md</div>
+      </div>
+      <div class="arch-ag sonnet">
+        <div class="ag-name">Coder</div>
+        <div class="ag-model">Sonnet 4.6</div>
+        <div class="ag-skill">SKILL.md</div>
+      </div>
+      <div class="arch-ag opus">
+        <div class="ag-name">Critic</div>
+        <div class="ag-model">Opus 4.6</div>
+        <div class="ag-skill">SKILL.md</div>
+      </div>
+      <div class="arch-ag sonnet">
+        <div class="ag-name">Reporter</div>
+        <div class="ag-model">Sonnet 4.6</div>
+        <div class="ag-skill">SKILL.md</div>
+      </div>
+    </div>
+
+    <!-- 连接层 -->
+    <div class="arch-connector">▼ bash tool (exec) ▼</div>
+
+    <!-- 底层：本地文件系统 + API -->
+    <div class="arch-layer workspace">
+      <div class="ll">~/.openclaw/workspace/</div>
+      <div class="ld">本地文件系统 · 纯 CPU &mdash; scripts/ · state/*.json · experiments/iter_N/ · data/chroma+mlflow</div>
+    </div>
+
+    <div class="arch-connector">▼ Python SDK ▼</div>
+
+    <div class="arch-layer api">
+      <div class="ll">Anthropic API</div>
+      <div class="ld">Opus · Sonnet · Haiku &nbsp;+&nbsp; Voyage AI (voyage-3.5)</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 01 · CONFIG ══ -->
+<div class="sec" id="config">
+  <div class="sec-label">01 · openclaw.json — 全局配置</div>
+
+  <div class="alert amber">
+    <strong>这是唯一的配置文件：</strong>所有模型分工、Agent 定义、工具权限、人工交互渠道，
+    全部在这一个 JSON5 文件中声明。声明式配置即完成模型路由。
+  </div>
+
+  <div class="code-wrap">
+    <div class="code-head"><span class="cf">~/.openclaw/openclaw.json</span><span class="cl">JSON5 · 完整配置</span></div>
+<pre>
+{
+  <span class="cm">// ─── Agent 默认配置 ─────────────────────────────────────────────</span>
+  agents: {
+    defaults: {
+      workspace: <span class="str">"~/.openclaw/workspace"</span>,
+      subagents: {
+        allowAgents: [<span class="str">"*"</span>],          <span class="cm">// 允许 spawn 任意 agentId</span>
+        archiveAfterMinutes: <span class="num">60</span>,        <span class="cm">// 默认 60，按需调大</span>
+        runTimeoutSeconds: <span class="num">1800</span>,        <span class="cm">// ⚠️ 必须显式设置！默认 0=不超时</span>
+      },
+      tools: {
+        exec: { enabled: <span class="op">true</span>, timeout: <span class="num">3600</span> },   <span class="cm">// bash 工具，1h 超时</span>
+        web:  { enabled: <span class="op">true</span> },
+      },
+    },
+
+    <span class="cm">// ─── per-agentId 模型分工 ──────────────────────────────────────</span>
+    list: [
+      {
+        id: <span class="str">"main"</span>,          <span class="cm">// Orchestrator：Opus + extended thinking</span>
+        model:    { primary: <span class="str">"anthropic/claude-opus-4-6"</span> },
+        thinking: { level:   <span class="str">"high"</span> },
+      },
+      {
+        id: <span class="str">"researcher"</span>,   <span class="cm">// 文献调研：Sonnet（高频抽取，成本敏感）</span>
+        model:    { primary: <span class="str">"anthropic/claude-sonnet-4-6"</span> },
+        thinking: { level:   <span class="str">"low"</span> },
+      },
+      {
+        id: <span class="str">"planner"</span>,      <span class="cm">// 实验规划：Opus + thinking（深度推理）</span>
+        model:    { primary: <span class="str">"anthropic/claude-opus-4-6"</span> },
+        thinking: { level:   <span class="str">"high"</span> },
+      },
+      {
+        id: <span class="str">"coder"</span>,        <span class="cm">// 代码生成：Sonnet（代码能力强，成本低）</span>
+        model:    { primary: <span class="str">"anthropic/claude-sonnet-4-6"</span> },
+        thinking: { level:   <span class="str">"medium"</span> },
+      },
+      {
+        id: <span class="str">"critic"</span>,       <span class="cm">// 结果批判：Opus + thinking（深度 gap 分析）</span>
+        model:    { primary: <span class="str">"anthropic/claude-opus-4-6"</span> },
+        thinking: { level:   <span class="str">"high"</span> },
+      },
+      {
+        id: <span class="str">"reporter"</span>,     <span class="cm">// 报告生成：Sonnet（长文写作，成本敏感）</span>
+        model:    { primary: <span class="str">"anthropic/claude-sonnet-4-6"</span> },
+        thinking: { level:   <span class="str">"low"</span> },
+      },
+    ],
+  },
+
+  <span class="cm">// ─── 人工交互渠道（人工审查检查点）───────────────</span>
+  channels: {
+    webchat:  { enabled: <span class="op">true</span> },                   <span class="cm">// http://127.0.0.1:18789</span>
+    telegram: {
+      enabled:  <span class="op">true</span>,
+      botToken: <span class="str">"$TELEGRAM_BOT_TOKEN"</span>,
+      dmPolicy: <span class="str">"allowlist"</span>,
+      allowFrom: [<span class="str">"tg:YOUR_ID"</span>],
+    },
+  },
+
+  <span class="cm">// ─── 子 Agent 工具限制（正确位置：tools.subagents.tools）────</span>
+  <span class="cm">// ⚠️ sandbox 是 agents.defaults.sandbox 或 agents.list[].sandbox 下的字段，不是顶层</span>
+  tools: {
+    subagents: {
+      tools: {
+        deny: [<span class="str">"browser"</span>, <span class="str">"canvas"</span>, <span class="str">"cron"</span>, <span class="str">"discord"</span>],
+      },
+    },
+  },
+
+  <span class="cm">// ─── ⚠️ Sandbox 必须关闭 ────────────────────────────────</span>
+  <span class="cm">// 默认 workspaceAccess:"none" 创建隔离沙箱，子 Agent 无法读写 state/ 文件</span>
+  agents: { defaults: { sandbox: { mode: <span class="str">"off"</span> } } },
+
+  <span class="cm">// ─── exec 超时（默认 1800s，ASR 实验需要 3600s）────────</span>
+  <span class="cm">// 注意：上方 defaults.tools.exec.timeout 已设 3600</span>
+}
+</pre>
+  </div>
+</div>
+
+<!-- ══ 02 · PIPELINE ══ -->
+<div class="sec" id="pipeline">
+  <div class="sec-label">02 · 七步工作流 — OpenClaw 原生机制映射</div>
+
+  <div class="pipeline">
+    <div class="p-stage">
+      <div class="p-num">STEP 01</div><div class="p-icon">📝</div>
+      <div class="p-title">需求解析</div>
+      <div class="p-mech">main session · bash</div>
+      <div class="p-model"><span class="badge b-pur">Opus 4.6</span></div>
+      <div class="p-desc">Orchestrator 读取用户消息，结构化写入 state/current_task.json</div>
+    </div>
+    <div class="p-stage">
+      <div class="p-num">STEP 02</div><div class="p-icon">🔬</div>
+      <div class="p-title">文献调研</div>
+      <div class="p-mech">sessions_spawn</div>
+      <div class="p-model"><span class="badge b-cyan">Sonnet 4.6</span></div>
+      <div class="p-desc">spawn researcher，bash 执行 fetch→embed→survey 脚本</div>
+    </div>
+    <div class="p-stage">
+      <div class="p-num">STEP 03</div><div class="p-icon">✋</div>
+      <div class="p-title">人工确认</div>
+      <div class="p-mech">WebChat / Telegram</div>
+      <div class="p-model"><span class="badge b-amb">Human</span></div>
+      <div class="p-desc">发综述摘要给用户，等待 "确认继续"</div>
+      <div class="p-human">⏸ 必须等待回复</div>
+    </div>
+    <div class="p-stage">
+      <div class="p-num">STEP 04</div><div class="p-icon">🗺️</div>
+      <div class="p-title">实验规划</div>
+      <div class="p-mech">sessions_spawn</div>
+      <div class="p-model"><span class="badge b-pur">Opus 4.6</span></div>
+      <div class="p-desc">spawn planner，thinking=high，输出 experiment_plan.yaml</div>
+    </div>
+    <div class="p-stage">
+      <div class="p-num">STEP 05</div><div class="p-icon">💻</div>
+      <div class="p-title">代码生成</div>
+      <div class="p-mech">sessions_spawn</div>
+      <div class="p-model"><span class="badge b-cyan">Sonnet 4.6</span></div>
+      <div class="p-desc">spawn coder，按 plan 生成 experiments/iter_N/run.py</div>
+    </div>
+    <div class="p-stage">
+      <div class="p-num">STEP 06</div><div class="p-icon">⚙️</div>
+      <div class="p-title">本地执行</div>
+      <div class="p-mech">bash tool (直接)</div>
+      <div class="p-model"><span class="badge b-pink">本地 CPU</span></div>
+      <div class="p-desc">Orchestrator bash 执行 run_experiment.py，MLflow 追踪</div>
+    </div>
+    <div class="p-stage">
+      <div class="p-num">STEP 07</div><div class="p-icon">🔍</div>
+      <div class="p-title">批判迭代</div>
+      <div class="p-mech">sessions_spawn</div>
+      <div class="p-model"><span class="badge b-pur">Opus 4.6</span></div>
+      <div class="p-desc">spawn critic，输出 converged 信号，否则回 STEP 04</div>
+    </div>
+  </div>
+
+  <div class="alert">
+    <strong>迭代收敛：</strong>Critic 输出 <code>converged: true</code> 或 iteration ≥ max_iter 时，
+    Orchestrator spawn reporter 生成最终报告，通过 WebChat/Telegram 发回用户。
+    全程状态保存在 state/ 目录，<strong>Gateway 重启后可无缝续跑</strong>，无需额外 Checkpointer。
+  </div>
+
+  <div class="alert amber">
+    <strong>⚠️ 非阻塞编排：</strong>所有 <code>sessions_spawn</code> 调用立即返回，Orchestrator
+    通过等待 <strong>announce 回调消息</strong>触发下一步。子 Agent 写文件 + 回复 ANNOUNCE_SKIP
+    是静默完成的惯用模式。子 Agent（researcher/planner 等）<strong>不能再 spawn 子 Agent</strong>
+    （默认 maxSpawnDepth=1，只有 main 可 spawn）。
+  </div>
+</div>
+
+<!-- ══ 03 · AGENTS ══ -->
+<div class="sec" id="agents">
+  <div class="sec-label">03 · Agent 设计 — 模型分工与 OpenClaw 机制</div>
+
+  <div class="agent-grid">
+    <div class="a-card ac-opus">
+      <div class="a-icon">🎯</div>
+      <div class="a-name">Orchestrator</div>
+      <div class="a-role">main session · 编排总脑</div>
+      <div class="a-mech">agentId: "main"</div>
+      <div class="a-desc">接收用户需求，通过 sessions_spawn 创建子 Agent，通过 bash tool 直接执行实验。全部工作流规范写在 AGENTS.md 中，不写一行 Python 编排代码。</div>
+      <div class="a-tags">
+        <span class="a-tag">Opus 4.6</span><span class="a-tag">thinking=high</span>
+        <span class="a-tag">sessions_spawn</span><span class="a-tag">bash</span><span class="a-tag">WebChat</span>
+      </div>
+    </div>
+    <div class="a-card ac-sonnet">
+      <div class="a-icon">🔬</div>
+      <div class="a-name">Research Agent</div>
+      <div class="a-role">subagent · 文献专员</div>
+      <div class="a-mech">agentId: "researcher"</div>
+      <div class="a-desc">Orchestrator spawn。通过 bash 执行 fetch_papers.py（ArXiv + Haiku 生成 query）、embed_papers.py（Voyage 向量化）、generate_survey.py（Sonnet 综述）。</div>
+      <div class="a-tags">
+        <span class="a-tag">Sonnet 4.6</span><span class="a-tag">bash tool</span>
+        <span class="a-tag">ChromaDB</span><span class="a-tag">Voyage-3.5</span>
+      </div>
+    </div>
+    <div class="a-card ac-opus">
+      <div class="a-icon">🗺️</div>
+      <div class="a-name">Planner Agent</div>
+      <div class="a-role">subagent · 方案规划</div>
+      <div class="a-mech">agentId: "planner"</div>
+      <div class="a-desc">读取 survey.md + current_task.json，extended thinking 制定实验计划（基线+改进+消融），输出 experiment_plan.yaml，包含每轮超参数搜索空间。</div>
+      <div class="a-tags">
+        <span class="a-tag">Opus 4.6</span><span class="a-tag">thinking=high</span>
+        <span class="a-tag">bash read</span><span class="a-tag">YAML 输出</span>
+      </div>
+    </div>
+    <div class="a-card ac-sonnet">
+      <div class="a-icon">💻</div>
+      <div class="a-name">Coder Agent</div>
+      <div class="a-role">subagent · 代码实现</div>
+      <div class="a-mech">agentId: "coder"</div>
+      <div class="a-desc">读取 experiment_plan.yaml，生成完整可运行的 Python 实验代码，写入 experiments/iter_N/。包含 run.py、requirements.txt、标准化 metrics.json 输出接口。</div>
+      <div class="a-tags">
+        <span class="a-tag">Sonnet 4.6</span><span class="a-tag">thinking=medium</span>
+        <span class="a-tag">bash write</span><span class="a-tag">venv 隔离</span>
+      </div>
+    </div>
+    <div class="a-card ac-opus">
+      <div class="a-icon">🔍</div>
+      <div class="a-name">Critic Agent</div>
+      <div class="a-role">subagent · 结果批判</div>
+      <div class="a-mech">agentId: "critic"</div>
+      <div class="a-desc">读取所有历史 results_N.json，extended thinking 分析指标 gap，诊断失败根因，生成结构化改进建议。输出 critic_N.json，包含 converged 收敛信号。</div>
+      <div class="a-tags">
+        <span class="a-tag">Opus 4.6</span><span class="a-tag">thinking=high</span>
+        <span class="a-tag">bash read</span><span class="a-tag">JSON 输出</span>
+      </div>
+    </div>
+    <div class="a-card ac-sonnet">
+      <div class="a-icon">📄</div>
+      <div class="a-name">Reporter Agent</div>
+      <div class="a-role">subagent · 报告生成</div>
+      <div class="a-mech">agentId: "reporter"</div>
+      <div class="a-desc">收敛后 spawn。读取 survey.md + 所有实验结果 + critic 分析，生成学术 Markdown 报告写入 reports/final_report.md，Orchestrator 通过渠道发回用户。</div>
+      <div class="a-tags">
+        <span class="a-tag">Sonnet 4.6</span><span class="a-tag">bash read</span>
+        <span class="a-tag">Markdown</span><span class="a-tag">MLflow 引用</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="alert amber">
+    <strong>⚠️ 子 Agent 上下文注入限制：</strong>子 Agent（subagent session）只注入
+    <code>AGENTS.md</code> + <code>TOOLS.md</code>，<strong>不注入</strong>
+    SOUL.md / USER.md / IDENTITY.md / HEARTBEAT.md / BOOTSTRAP.md。
+    需要给子 Agent 的领域知识和操作规范，应写在 <code>AGENTS.md</code> 或对应的 SKILL.md 文件中。
+  </div>
+
+  <div class="alert purple">
+    <strong>Haiku 4.5 的隐式使用：</strong>Haiku 不作为独立子 Agent，而是在 Python 脚本内
+    通过 Anthropic SDK 直接调用，用于 ArXiv query 生成、错误摘要、JSON 格式化等高频轻量任务。
+    每次 ~$0.001，适合脚本内批量调用。
+  </div>
+</div>
+
+<!-- ══ 04 · SKILLS ══ -->
+<div class="sec" id="skills">
+  <div class="sec-label">04 · Skills 系统 — SKILL.md Agent 能力定义</div>
+
+  <div class="alert">
+    <strong>Skills 机制：</strong>每个 SKILL.md 是 AgentSkills 格式文件，放在
+    <code>workspace/skills/&lt;name&gt;/SKILL.md</code>。Gateway 启动时自动注入对应 Agent
+    的系统提示，告诉 Agent 如何通过 bash 工具调用各类能力。<strong>纯 Markdown 定义，声明即能力。</strong>
+  </div>
+
+  <div class="skill-grid">
+    <div class="sk-card">
+      <div class="sk-name">researcher-pipeline</div>
+      <div class="sk-path">skills/researcher-pipeline/SKILL.md</div>
+      <div class="sk-desc">完整 4 步研究流程：读取任务 → 论文抓取 → 向量化 → 综述生成。每步含完整 bash 命令模板和输出格式规范。</div>
+      <div class="sk-uses">Agent: <span>researcher</span> · 调用脚本: <span>fetch_papers.py · embed_papers.py · generate_survey.py</span></div>
+    </div>
+    <div class="sk-card">
+      <div class="sk-name">experiment-runner</div>
+      <div class="sk-path">skills/experiment-runner/SKILL.md</div>
+      <div class="sk-desc">本地 CPU 实验执行规范：venv 创建、subprocess 执行、MLflow 追踪、失败处理（Haiku 错误摘要）。定义 metrics.json 标准接口。</div>
+      <div class="sk-uses">Agent: <span>main (Orchestrator)</span> · 调用脚本: <span>run_experiment.py</span></div>
+    </div>
+    <div class="sk-card">
+      <div class="sk-name">voyage-embed</div>
+      <div class="sk-path">skills/voyage-embed/SKILL.md</div>
+      <div class="sk-desc">Voyage AI embedding 调用规范：batch 大小限制、query/document 类型区分、ChromaDB schema 定义和检索方法说明。</div>
+      <div class="sk-uses">Agent: <span>researcher</span> · 调用脚本: <span>embed_papers.py · search_papers.py</span></div>
+    </div>
+    <div class="sk-card">
+      <div class="sk-name">critic-analyzer</div>
+      <div class="sk-path">skills/critic-analyzer/SKILL.md</div>
+      <div class="sk-desc">结果批判规范：收敛判断（max_iter/目标达成/min_delta）、gap 分析框架、改进建议 JSON schema 定义。</div>
+      <div class="sk-uses">Agent: <span>critic</span> · 输出: <span>critic_N.json (converged + improvements[])</span></div>
+    </div>
+    <div class="sk-card">
+      <div class="sk-name">state-manager</div>
+      <div class="sk-path">skills/state-manager/SKILL.md</div>
+      <div class="sk-desc">所有 state/*.json 文件的 schema 定义、迭代计数更新、历史结果聚合方式。所有 Agent 共享的统一状态管理规范。</div>
+      <div class="sk-uses">所有 Agent 共享 · 角色: <span>统一状态 Schema 管理</span></div>
+    </div>
+    <div class="sk-card">
+      <div class="sk-name">asr-domain</div>
+      <div class="sk-path">skills/asr-domain/SKILL.md</div>
+      <div class="sk-desc">ASR 领域知识注入：热词召回评估指标（Recall@K/CER/Latency P95）、ArXiv 检索词库、推荐基线（DualEncoder/CIF-biasing/TCPGen）。</div>
+      <div class="sk-uses">所有 Agent 共享 · 领域: <span>AudioEncoder+LLM · FAISS · 热词召回</span></div>
+    </div>
+  </div>
+
+  <h3>核心文件：AGENTS.md（Turn-Based 工作流规范）</h3>
+  <div class="code-wrap">
+    <div class="code-head"><span class="cf">~/.openclaw/workspace/AGENTS.md</span><span class="cl">Turn-Based 编排 · 主+子 Agent 共享注入 · 角色条件段</span></div>
+<pre>
+<span class="cm"># ASR Research Assistant</span>
+
+<span class="cm">## 角色识别</span>
+- 如果你是 <strong>main session</strong>（Orchestrator），遵循下方「Orchestrator 工作流」
+- 如果你被 <strong>sessions_spawn 调用</strong>（子 Agent），遵循下方「子 Agent 通用规范」
+
+---
+
+<span class="cm">## Orchestrator 工作流（仅 main session）</span>
+
+你是 ASR 科研助手总编排者（claude-opus-4-6，extended thinking）。
+⚠️ <strong>Turn-Based 编排</strong>：每次 spawn 后结束当前 turn，等 announce 回调再继续。
+
+<span class="cm">### 状态跟踪</span>
+每次 turn 开始时，先用 bash 读取 state/progress.json 确定当前 PHASE。
+如果文件不存在，从 PHASE 1 开始。
+
+<span class="cm">### PHASE 1 — 需求解析（当前 turn 完成）</span>
+将用户输入结构化，用 bash 工具写入：
+  state/current_task.json  {query, tech_direction, target_metrics, max_iterations, min_delta}
+  state/iteration.json     {current: 0, best_cer: 1.0, history: []}
+  state/progress.json      {phase: 2, status: "spawning_researcher"}
+然后立即进入 PHASE 2。
+
+<span class="cm">### PHASE 2 — 文献调研（spawn 后结束 turn）</span>
+sessions_spawn({ agentId: "researcher", model: "anthropic/claude-sonnet-4-6",
+  runTimeoutSeconds: 1200, task: "执行 researcher-pipeline SKILL，完成后 ANNOUNCE_SKIP" })
+更新 state/progress.json: {phase: 2, status: "waiting_researcher"}
+<strong>⬛ 结束当前 turn，等待 announce 回调</strong>
+
+<span class="cm">### [announce 到来 → 新 turn]</span>
+bash 读取 state/survey.md 摘要发给用户，进入 PHASE 3。
+
+<span class="cm">### PHASE 3 — ✋ 人工确认（暂停等待用户消息）</span>
+
+<span class="cm">### PHASE 4 — 实验规划（spawn 后结束 turn）</span>
+sessions_spawn({ agentId: "planner", model: "anthropic/claude-opus-4-6",
+  runTimeoutSeconds: 600, task: "读取 state/ 制定实验计划写入 experiment_plan.yaml，ANNOUNCE_SKIP" })
+<strong>⬛ 结束当前 turn</strong>
+
+<span class="cm">### PHASE 5 — 代码生成（spawn 后结束 turn）</span>
+sessions_spawn({ agentId: "coder", model: "anthropic/claude-sonnet-4-6",
+  runTimeoutSeconds: 600, task: "读取 experiment_plan.yaml 生成代码，ANNOUNCE_SKIP" })
+<strong>⬛ 结束当前 turn</strong>
+
+<span class="cm">### PHASE 6 — 本地执行（bash 直接，不 spawn）</span>
+cd ~/.openclaw/workspace && source venv/bin/activate
+timeout 3600 python scripts/run_experiment.py --config ... --iter $ITER --output ...
+执行完直接进入 PHASE 7（无需新 turn）。
+
+<span class="cm">### PHASE 7 — 批判判断（spawn 后结束 turn）</span>
+sessions_spawn({ agentId: "critic", model: "anthropic/claude-opus-4-6",
+  runTimeoutSeconds: 600, task: "分析 gap 输出 critic_N.json，ANNOUNCE_SKIP" })
+<strong>⬛ 结束当前 turn</strong>
+
+<span class="cm">### [announce 到来 → 新 turn]</span>
+converged=false → 回到 PHASE 4；converged=true → PHASE 8
+
+<span class="cm">### PHASE 8 — 报告生成（spawn 后结束 turn）</span>
+sessions_spawn({ agentId: "reporter", ... })
+<strong>⬛ 结束当前 turn</strong>
+
+---
+
+<span class="cm">## 子 Agent 通用规范（被 spawn 调用时）</span>
+1. 按 task 参数指令执行
+2. 所有输入/输出通过 bash 读写 state/ 目录
+3. 不要调用 sessions_spawn/sessions_send（无权限）
+4. 完成后回复 ANNOUNCE_SKIP
+5. 遇到错误写入 state/error.json 并回复 ANNOUNCE_SKIP
+
+<span class="cm">## 状态规范</span>
+全部中间结果通过 bash 读写 state/ 文件。子 Agent 不通过 LLM 上下文传递数据。
+新增 state/progress.json 跟踪当前 PHASE，支持断点续跑。
+</pre>
+  </div>
+
+  <h3>SKILL.md 格式示例：researcher-pipeline</h3>
+  <div class="code-wrap">
+    <div class="code-head"><span class="cf">workspace/skills/researcher-pipeline/SKILL.md</span><span class="cl">AgentSkills 格式</span></div>
+<pre>
+---
+name: researcher-pipeline
+description: ASR文献调研流水线 - ArXiv抓取/向量化/综述生成
+user-invocable: false
+---
+
+<span class="cm"># Research Pipeline Skill</span>
+
+被 Orchestrator 通过 sessions_spawn 调用时，按以下顺序执行：
+
+<span class="cm">## Step 1: 读取任务定义</span>
+
+```bash
+cat ~/.openclaw/workspace/state/current_task.json
+```
+
+<span class="cm">## Step 2: 抓取论文（Haiku 生成 query + Sonnet 抽取信息）</span>
+
+```bash
+cd ~/.openclaw/workspace && source venv/bin/activate
+python scripts/fetch_papers.py \
+  --task   state/current_task.json \
+  --output state/papers.json
+```
+
+预期 stdout：`✓ 高相关论文 N 篇 → state/papers.json`
+
+<span class="cm">## Step 3: 向量化存储（voyage-3.5 + ChromaDB）</span>
+
+```bash
+python scripts/embed_papers.py --papers state/papers.json
+```
+
+<span class="cm">## Step 4: 生成技术综述（RAG + Sonnet）</span>
+
+```bash
+python scripts/generate_survey.py \
+  --task   state/current_task.json \
+  --papers state/papers.json \
+  --output state/survey.md
+```
+
+完成后回复 `ANNOUNCE_SKIP`（Orchestrator 通过读取 state/survey.md 获取结果）。
+</pre>
+  </div>
+</div>
+
+<!-- ══ 05 · CODE ══ -->
+<div class="sec" id="code">
+  <div class="sec-label">05 · Python 脚本层 — bash tool 调用的纯计算层</div>
+
+  <div class="alert">
+    <strong>职责划分：</strong>Python 脚本只做计算，不做编排。Claude API（Haiku/Sonnet）在脚本内
+    直接调用，Voyage Embedding 也在此处。脚本通过 stdout 返回结果，Agent 读取即可。
+    编排逻辑全部由 AGENTS.md + SKILL.md 定义。
+  </div>
+
+  <div class="code-wrap">
+    <div class="code-head"><span class="cf">workspace/scripts/fetch_papers.py</span><span class="cl">ArXiv · Haiku query生成 · Sonnet 信息抽取</span></div>
+<pre>
+<span class="kw">import</span> arxiv, json, argparse
+<span class="kw">from</span> anthropic <span class="kw">import</span> Anthropic
+
+client = Anthropic()  <span class="cm"># 读取 ANTHROPIC_API_KEY</span>
+
+<span class="kw">def</span> <span class="fn">gen_queries</span>(task: <span class="ty">dict</span>) -> <span class="ty">list</span>:
+    <span class="cm">"""Haiku：将研究方向分解为 3-5 个 ArXiv 检索词组合（~$0.001）"""</span>
+    r = client.messages.create(
+        model=<span class="str">"claude-haiku-4-5-20251001"</span>, max_tokens=<span class="num">512</span>,
+        system=<span class="str">'只返回JSON，格式: {"queries":["q1","q2",...]}'</span>,
+        messages=[{<span class="str">"role"</span>: <span class="str">"user"</span>, <span class="str">"content"</span>:
+            <span class="str">f"ASR研究方向拆解为3-5个ArXiv关键词组合:\n{task['tech_direction']}"</span>}]
+    )
+    <span class="kw">return</span> json.loads(r.content[<span class="num">0</span>].text)[<span class="str">"queries"</span>]
+
+<span class="kw">def</span> <span class="fn">extract_info</span>(title: <span class="ty">str</span>, abstract: <span class="ty">str</span>) -> <span class="ty">dict</span>:
+    <span class="cm">"""Sonnet：抽取方法/数据集/指标，并打相关性分（0-10）"""</span>
+    r = client.messages.create(
+        model=<span class="str">"claude-sonnet-4-6"</span>, max_tokens=<span class="num">512</span>,
+        system=<span class="str">'返回JSON: {"methods":[],"datasets":[],"metrics":{},"relevance":0}'</span>,
+        messages=[{<span class="str">"role"</span>: <span class="str">"user"</span>, <span class="str">"content"</span>:
+            <span class="str">f"Title: {title}\nAbstract: {abstract[:800]}"</span>}]
+    )
+    <span class="kw">return</span> json.loads(r.content[<span class="num">0</span>].text)
+
+<span class="kw">def</span> <span class="fn">main</span>():
+    ap = argparse.ArgumentParser()
+    ap.add_argument(<span class="str">"--task"</span>); ap.add_argument(<span class="str">"--output"</span>)
+    args = ap.parse_args()
+
+    task    = json.load(open(args.task))
+    queries = gen_queries(task)
+    print(<span class="str">f"🔍 生成 {len(queries)} 个检索 query"</span>)
+
+    papers = []
+    <span class="kw">for</span> q <span class="kw">in</span> queries:
+        results = list(arxiv.Search(query=q, max_results=<span class="num">8</span>,
+            sort_by=arxiv.SortCriterion.Relevance).results())
+        <span class="kw">for</span> p <span class="kw">in</span> results:
+            info = extract_info(p.title, p.summary)
+            <span class="kw">if</span> info.get(<span class="str">"relevance"</span>, <span class="num">0</span>) >= <span class="num">6</span>:  <span class="cm"># 过滤低相关</span>
+                papers.append({
+                    <span class="str">"id"</span>: p.entry_id, <span class="str">"title"</span>: p.title,
+                    <span class="str">"abstract"</span>: p.summary, <span class="str">"url"</span>: p.pdf_url,
+                    <span class="str">"info"</span>: info
+                })
+
+    json.dump(papers, open(args.output, <span class="str">"w"</span>), ensure_ascii=<span class="op">False</span>, indent=<span class="num">2</span>)
+    print(<span class="str">f"✓ 高相关论文 {len(papers)} 篇 → {args.output}"</span>)
+
+<span class="kw">if</span> __name__ == <span class="str">"__main__"</span>: main()
+</pre>
+  </div>
+
+  <div class="two">
+    <div>
+      <div class="code-wrap">
+        <div class="code-head"><span class="cf">scripts/embed_papers.py</span><span class="cl">Voyage AI · ChromaDB</span></div>
+<pre>
+<span class="kw">import</span> voyageai, chromadb
+<span class="kw">import</span> json, argparse
+<span class="kw">from</span> pathlib <span class="kw">import</span> Path
+
+vo    = voyageai.Client()   <span class="cm"># VOYAGE_API_KEY</span>
+chroma = chromadb.PersistentClient(
+    path=<span class="ty">str</span>(Path(<span class="str">"~/.openclaw/workspace/data/chroma"</span>
+    ).expanduser()))
+coll  = chroma.get_or_create_collection(<span class="str">"papers"</span>)
+
+<span class="kw">def</span> <span class="fn">main</span>():
+    ap = argparse.ArgumentParser()
+    ap.add_argument(<span class="str">"--papers"</span>)
+    args = ap.parse_args()
+
+    papers = json.load(open(args.papers))
+    texts  = [p[<span class="str">"abstract"</span>][:2000] <span class="kw">for</span> p <span class="kw">in</span> papers]
+
+    <span class="cm"># voyage-3.5，document 类型，batch=64</span>
+    embeddings = []
+    <span class="kw">for</span> i <span class="kw">in</span> range(<span class="num">0</span>, len(texts), <span class="num">64</span>):
+        res = vo.embed(texts[i:i+<span class="num">64</span>],
+            model=<span class="str">"voyage-3.5"</span>,
+            input_type=<span class="str">"document"</span>)
+        embeddings.extend(res.embeddings)
+
+    coll.upsert(
+        ids       =[p[<span class="str">"id"</span>] <span class="kw">for</span> p <span class="kw">in</span> papers],
+        embeddings=embeddings,
+        documents =texts,
+        metadatas =[{<span class="str">"title"</span>: p[<span class="str">"title"</span>],
+                     <span class="str">"url"</span>:   p.get(<span class="str">"url"</span>, <span class="str">""</span>)}
+                    <span class="kw">for</span> p <span class="kw">in</span> papers]
+    )
+    print(<span class="str">f"✓ 向量化 {len(papers)} 篇 → ChromaDB"</span>)
+
+<span class="kw">if</span> __name__ == <span class="str">"__main__"</span>: main()
+</pre>
+      </div>
+    </div>
+    <div>
+      <div class="code-wrap">
+        <div class="code-head"><span class="cf">scripts/generate_survey.py</span><span class="cl">RAG + Sonnet 综述</span></div>
+<pre>
+<span class="kw">import</span> json, argparse, voyageai, chromadb
+<span class="kw">from</span> anthropic <span class="kw">import</span> Anthropic
+<span class="kw">from</span> pathlib <span class="kw">import</span> Path
+
+client = Anthropic()
+vo     = voyageai.Client()
+coll   = chromadb.PersistentClient(
+  path=<span class="ty">str</span>(Path(<span class="str">"~/.openclaw/workspace/data/chroma"</span>
+  ).expanduser())
+).get_collection(<span class="str">"papers"</span>)
+
+<span class="kw">def</span> <span class="fn">main</span>():
+    ap = argparse.ArgumentParser()
+    ap.add_argument(<span class="str">"--task"</span>)
+    ap.add_argument(<span class="str">"--papers"</span>)
+    ap.add_argument(<span class="str">"--output"</span>)
+    args = ap.parse_args()
+
+    task = json.load(open(args.task))
+
+    <span class="cm"># RAG：用研究方向 query 检索最相关论文</span>
+    q_embed = vo.embed([task[<span class="str">"tech_direction"</span>]],
+        model=<span class="str">"voyage-3.5"</span>,
+        input_type=<span class="str">"query"</span>).embeddings[<span class="num">0</span>]
+    top_k = coll.query(
+        query_embeddings=[q_embed], n_results=<span class="num">12</span>)
+
+    <span class="cm"># Sonnet 生成 3000 字综述</span>
+    r = client.messages.create(
+        model=<span class="str">"claude-sonnet-4-6"</span>,
+        max_tokens=<span class="num">3000</span>,
+        system=<span class="str">"""你是资深 ASR 研究员，写技术综述：
+1. 各方法核心思路与优劣对比
+2. 关键指标横向比较
+3. 推荐实验基线（≥3个）
+4. 针对研究方向的具体建议"""</span>,
+        messages=[{<span class="str">"role"</span>: <span class="str">"user"</span>,
+            <span class="str">"content"</span>: <span class="str">f"方向: {task['tech_direction']}\n\n"</span>
+                       <span class="str">f"论文: {json.dumps(top_k['documents'], ensure_ascii=False)}"</span>}]
+    )
+    Path(args.output).write_text(
+        r.content[<span class="num">0</span>].text, encoding=<span class="str">"utf-8"</span>)
+    print(<span class="str">f"✓ 综述已生成 → {args.output}"</span>)
+
+<span class="kw">if</span> __name__ == <span class="str">"__main__"</span>: main()
+</pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="code-wrap">
+    <div class="code-head"><span class="cf">workspace/scripts/run_experiment.py</span><span class="cl">本地 CPU 执行 · venv 隔离 · MLflow 追踪 · Haiku 错误摘要</span></div>
+<pre>
+<span class="kw">import</span> subprocess, json, yaml, sys, time, mlflow, argparse
+<span class="kw">from</span> anthropic <span class="kw">import</span> Anthropic
+<span class="kw">from</span> pathlib <span class="kw">import</span> Path
+
+client = Anthropic()
+
+<span class="kw">def</span> <span class="fn">summarize_error</span>(stderr: <span class="ty">str</span>) -> <span class="ty">dict</span>:
+    <span class="cm">"""Haiku：解析 stderr，提取错误类型和修复建议（~$0.001）"""</span>
+    r = client.messages.create(
+        model=<span class="str">"claude-haiku-4-5-20251001"</span>, max_tokens=<span class="num">256</span>,
+        system=<span class="str">'返回JSON: {"type":"...","line":"...","fix":"..."}'</span>,
+        messages=[{<span class="str">"role"</span>:<span class="str">"user"</span>, <span class="str">"content"</span>: stderr[-<span class="num">3000</span>:]}]
+    )
+    <span class="kw">return</span> json.loads(r.content[<span class="num">0</span>].text)
+
+<span class="kw">def</span> <span class="fn">main</span>():
+    ap = argparse.ArgumentParser()
+    ap.add_argument(<span class="str">"--config"</span>); ap.add_argument(<span class="str">"--iter"</span>, type=<span class="ty">int</span>)
+    ap.add_argument(<span class="str">"--output"</span>)
+    args = ap.parse_args()
+
+    plan    = yaml.safe_load(open(args.config))
+    config  = plan[<span class="str">"iterations"</span>][args.iter]
+    exp_dir = Path(<span class="str">f"experiments/iter_{args.iter}"</span>)
+    venv    = exp_dir / <span class="str">"venv"</span>
+
+    <span class="cm"># 创建隔离 venv（首次）</span>
+    <span class="kw">if not</span> (venv / <span class="str">"bin"</span>).exists():
+        subprocess.run([<span class="str">"python3"</span>, <span class="str">"-m"</span>, <span class="str">"venv"</span>, <span class="ty">str</span>(venv)], check=<span class="op">True</span>)
+        subprocess.run([<span class="ty">str</span>(venv/<span class="str">"bin/pip"</span>), <span class="str">"install"</span>, <span class="str">"-q"</span>,
+                        <span class="str">"-r"</span>, <span class="ty">str</span>(exp_dir/<span class="str">"requirements.txt"</span>)], check=<span class="op">True</span>)
+
+    <span class="cm"># MLflow 追踪</span>
+    mlflow.set_tracking_uri(<span class="str">"data/mlflow"</span>)
+    <span class="kw">with</span> mlflow.start_run(run_name=<span class="str">f"iter_{args.iter}"</span>) <span class="kw">as</span> run:
+        mlflow.log_params(config)
+        t0 = time.time()
+
+        proc = subprocess.run(
+            [<span class="ty">str</span>(venv/<span class="str">"bin/python"</span>), <span class="str">"run.py"</span>,
+             <span class="str">"--config"</span>, json.dumps(config)],
+            cwd=<span class="ty">str</span>(exp_dir), capture_output=<span class="op">True</span>,
+            text=<span class="op">True</span>, timeout=<span class="num">3600</span>    <span class="cm"># 1h CPU 超时</span>
+        )
+        elapsed = time.time() - t0
+
+        <span class="kw">if</span> proc.returncode != <span class="num">0</span>:
+            err = summarize_error(proc.stderr)
+            result = {<span class="str">"status"</span>: <span class="str">"failed"</span>, <span class="str">"error"</span>: err, <span class="str">"elapsed"</span>: elapsed}
+            json.dump(result, open(args.output, <span class="str">"w"</span>))
+            print(json.dumps(result)); sys.exit(<span class="num">1</span>)
+
+        metrics = json.loads((exp_dir/<span class="str">"metrics.json"</span>).read_text())
+        metrics.update({<span class="str">"elapsed_sec"</span>: elapsed, <span class="str">"mlflow_run_id"</span>: run.info.run_id})
+        mlflow.log_metrics({k:v <span class="kw">for</span> k,v <span class="kw">in</span> metrics.items()
+                            <span class="kw">if</span> isinstance(v,(int,float))})
+
+    json.dump(metrics, open(args.output,<span class="str">"w"</span>), indent=<span class="num">2</span>)
+    print(json.dumps(metrics, indent=<span class="num">2</span>))  <span class="cm"># Orchestrator 从 stdout 读取指标</span>
+
+<span class="kw">if</span> __name__ == <span class="str">"__main__"</span>: main()
+</pre>
+  </div>
+
+  <div class="alert amber">
+    <strong>⚠️ sessions_spawn 是非阻塞调用：</strong>立即返回 <code>{status:"accepted", runId, childSessionKey}</code>。
+    子 Agent 完成后通过 <strong>announce 回调</strong>将结果发回 Orchestrator 所在 channel。
+    Orchestrator 在等待期间可继续对话，announce 消息到来时再执行下一步（bash 读取状态文件）。
+    子 Agent 回复 <code>ANNOUNCE_SKIP</code> 表示静默宣告，Orchestrator 应通过 bash 读文件获结果。
+  </div>
+
+  <div class="code-wrap">
+    <div class="code-head"><span class="cf">Orchestrator 内部 sessions_spawn 调用示例</span><span class="cl">OpenClaw 工具调用序列 · 非阻塞</span></div>
+<pre>
+<span class="cm">// ① PHASE 2 — spawn Research Agent（非阻塞，等 announce 回调后读 survey.md）</span>
+sessions_spawn({
+  agentId: <span class="str">"researcher"</span>,
+  model:   <span class="str">"anthropic/claude-sonnet-4-6"</span>,
+  label:   <span class="str">"research-phase"</span>,
+  runTimeoutSeconds: <span class="num">1200</span>,  <span class="cm">// ⚠️ 必须显式设置，默认 0=不超时</span>
+  task:    <span class="str">`执行 researcher-pipeline SKILL 全部步骤。完成后回复 ANNOUNCE_SKIP`</span>
+})
+<span class="cm">// → 立即返回 {status:"accepted", runId, childSessionKey}</span>
+<span class="cm">// → 等 announce 消息到来后，bash 读 state/survey.md 摘要发给用户</span>
+
+<span class="cm">// ② announce 到来后：读取综述，发给用户，等待确认（人工检查点）</span>
+bash: <span class="str">`cat ~/.openclaw/workspace/state/survey.md`</span>
+<span class="cm">// → 展示给用户，等待 "确认继续"</span>
+
+<span class="cm">// ③ PHASE 4 — spawn Planner (Opus + extended thinking，非阻塞)</span>
+sessions_spawn({
+  agentId: <span class="str">"planner"</span>,
+  model:   <span class="str">"anthropic/claude-opus-4-6"</span>,
+  label:   <span class="str">"planner-phase"</span>,
+  runTimeoutSeconds: <span class="num">600</span>,
+  task:    <span class="str">`读取 state/current_task.json 和 state/survey.md，
+           制定 6 轮实验计划，写入 state/experiment_plan.yaml。完成后 ANNOUNCE_SKIP`</span>
+})
+
+<span class="cm">// ④ PHASE 5 — spawn Coder（非阻塞）</span>
+sessions_spawn({
+  agentId: <span class="str">"coder"</span>,
+  model:   <span class="str">"anthropic/claude-sonnet-4-6"</span>,
+  label:   <span class="str">`coder-iter-${ITER}`</span>,
+  runTimeoutSeconds: <span class="num">600</span>,
+  task:    <span class="str">`读取 state/experiment_plan.yaml，生成 experiments/iter_${ITER}/run.py
+           和 requirements.txt，确保输出 metrics.json。完成后 ANNOUNCE_SKIP`</span>
+})
+
+<span class="cm">// ⑤ PHASE 6 — Orchestrator 直接 bash 执行实验（本地 CPU，同步阻塞）</span>
+bash: <span class="str">`
+  cd ~/.openclaw/workspace && source venv/bin/activate
+  ITER=$(python3 -c "import json; print(json.load(open('state/iteration.json'))['current'])")
+  timeout 3600 python scripts/run_experiment.py \
+    --config state/experiment_plan.yaml \
+    --iter   $ITER \
+    --output state/results_${ITER}.json
+  cat state/results_${ITER}.json
+`</span>
+
+<span class="cm">// ⑥ PHASE 7 — spawn Critic (Opus + thinking=high，非阻塞)</span>
+sessions_spawn({
+  agentId: <span class="str">"critic"</span>,
+  model:   <span class="str">"anthropic/claude-opus-4-6"</span>,
+  label:   <span class="str">`critic-iter-${ITER}`</span>,
+  runTimeoutSeconds: <span class="num">600</span>,
+  task:    <span class="str">`读取 state/current_task.json 和所有 state/results_*.json，
+           分析 gap，输出 state/critic_${ITER}.json:
+           {converged:bool, improvements:[{type,change,expected_gain}]}。完成后 ANNOUNCE_SKIP`</span>
+})
+<span class="cm">// → 等 announce 到来后，bash 读 critic_${ITER}.json 判断是否收敛</span>
+
+<span class="cm">// ⑦ 收敛 → spawn Reporter（非阻塞）</span>
+sessions_spawn({
+  agentId: <span class="str">"reporter"</span>,
+  model:   <span class="str">"anthropic/claude-sonnet-4-6"</span>,
+  runTimeoutSeconds: <span class="num">600</span>,
+  task:    <span class="str">`读取 state/survey.md + 所有实验结果 + critic 分析，
+           生成学术报告 reports/final_report.md。完成后 ANNOUNCE_SKIP`</span>
+})
+<span class="cm">// → 等 announce 到来后，Orchestrator 将报告路径和最佳指标发给用户</span>
+</pre>
+  </div>
+</div>
+
+<!-- ══ 06 · STATE ══ -->
+<div class="sec" id="state">
+  <div class="sec-label">06 · 状态管理 — 文件系统持久化</div>
+
+  <div class="alert amber">
+    <strong>核心设计：</strong>所有 Agent 间状态通过 <code>state/*.json/yaml/md</code> 文件共享，
+    不通过 LLM 上下文传递。子 Agent bash 读取上下文，bash 写入结果。
+    Gateway 作为 daemon 持续运行，状态天然持久化。
+  </div>
+
+  <div class="state-grid">
+    <div class="sf-card">
+      <div class="sf-file">current_task.json</div>
+      <div class="sf-who"><strong>写：</strong>Orchestrator (PHASE 1)<br><strong>读：</strong>所有子 Agent</div>
+    </div>
+    <div class="sf-card">
+      <div class="sf-file">papers.json</div>
+      <div class="sf-who"><strong>写：</strong>fetch_papers.py<br><strong>读：</strong>embed_papers.py · generate_survey.py</div>
+    </div>
+    <div class="sf-card">
+      <div class="sf-file">survey.md</div>
+      <div class="sf-who"><strong>写：</strong>generate_survey.py<br><strong>读：</strong>Orchestrator · Planner · Reporter</div>
+    </div>
+    <div class="sf-card">
+      <div class="sf-file">experiment_plan.yaml</div>
+      <div class="sf-who"><strong>写：</strong>Planner Agent<br><strong>读：</strong>Coder · run_experiment.py</div>
+    </div>
+    <div class="sf-card">
+      <div class="sf-file">iteration.json</div>
+      <div class="sf-who"><strong>写：</strong>Orchestrator (每轮)<br><strong>读：</strong>所有 Agent</div>
+    </div>
+    <div class="sf-card">
+      <div class="sf-file">results_N.json</div>
+      <div class="sf-who"><strong>写：</strong>run_experiment.py<br><strong>读：</strong>Critic · Reporter</div>
+    </div>
+    <div class="sf-card">
+      <div class="sf-file">critic_N.json</div>
+      <div class="sf-who"><strong>写：</strong>Critic Agent<br><strong>读：</strong>Orchestrator (收敛判断)</div>
+    </div>
+    <div class="sf-card">
+      <div class="sf-file">final_report.md</div>
+      <div class="sf-who"><strong>写：</strong>Reporter Agent<br><strong>读：</strong>Orchestrator (发给用户)</div>
+    </div>
+  </div>
+
+  <h3>完整 workspace 目录结构</h3>
+  <div class="tree">
+    <div class="tree-root">~/.openclaw/workspace/</div>
+
+    <div class="tree-group">
+      <div class="tree-item">
+        <div class="tree-name hi">AGENTS.md</div>
+        <div class="tree-desc">Orchestrator 系统提示 + 核心工作流定义</div>
+      </div>
+      <div class="tree-item">
+        <div class="tree-name file">SOUL.md</div>
+        <div class="tree-desc">助手人格（可选）</div>
+      </div>
+    </div>
+
+    <div class="tree-group">
+      <div class="tree-item">
+        <div class="tree-name dir">skills/</div>
+        <div class="tree-desc">每个 SKILL.md 定义一个 Agent 的能力</div>
+      </div>
+      <div class="tree-item indent-1">
+        <div class="tree-name hi">researcher-pipeline/SKILL.md</div>
+        <div class="tree-desc">文献调研 4 步流水线</div>
+      </div>
+      <div class="tree-item indent-1">
+        <div class="tree-name hi">experiment-runner/SKILL.md</div>
+        <div class="tree-desc">本地 CPU 实验执行规范</div>
+      </div>
+      <div class="tree-item indent-1">
+        <div class="tree-name hi">voyage-embed/SKILL.md</div>
+        <div class="tree-desc">Voyage API 调用规范</div>
+      </div>
+      <div class="tree-item indent-1">
+        <div class="tree-name hi">critic-analyzer/SKILL.md</div>
+        <div class="tree-desc">结果批判与收敛判断</div>
+      </div>
+      <div class="tree-item indent-1">
+        <div class="tree-name hi">state-manager/SKILL.md</div>
+        <div class="tree-desc">统一状态 Schema 管理</div>
+      </div>
+      <div class="tree-item indent-1">
+        <div class="tree-name hi">asr-domain/SKILL.md</div>
+        <div class="tree-desc">ASR 领域知识（热词/CER/FAISS）</div>
+      </div>
+    </div>
+
+    <div class="tree-group">
+      <div class="tree-item">
+        <div class="tree-name dir">scripts/</div>
+        <div class="tree-desc">bash tool 调用的 Python 脚本（纯计算，无编排）</div>
+      </div>
+      <div class="tree-item indent-1">
+        <div class="tree-name new">fetch_papers.py</div>
+        <div class="tree-desc">arxiv + Haiku query + Sonnet 抽取</div>
+      </div>
+      <div class="tree-item indent-1">
+        <div class="tree-name new">embed_papers.py</div>
+        <div class="tree-desc">Voyage voyage-3.5 + ChromaDB</div>
+      </div>
+      <div class="tree-item indent-1">
+        <div class="tree-name new">generate_survey.py</div>
+        <div class="tree-desc">RAG 检索 + Sonnet 综述</div>
+      </div>
+      <div class="tree-item indent-1">
+        <div class="tree-name new">run_experiment.py</div>
+        <div class="tree-desc">venv + subprocess + MLflow + Haiku 错误摘要</div>
+      </div>
+      <div class="tree-item indent-1">
+        <div class="tree-name file">requirements.txt</div>
+        <div class="tree-desc">anthropic voyageai chromadb mlflow arxiv pypdf2 pyyaml</div>
+      </div>
+    </div>
+
+    <div class="tree-group">
+      <div class="tree-item">
+        <div class="tree-name dir">state/</div>
+        <div class="tree-desc">所有 Agent 间共享状态（文件持久化）</div>
+      </div>
+      <div class="tree-item indent-1">
+        <div class="tree-name file">current_task.json · papers.json · survey.md</div>
+        <div class="tree-desc"></div>
+      </div>
+      <div class="tree-item indent-1">
+        <div class="tree-name file">experiment_plan.yaml · iteration.json</div>
+        <div class="tree-desc"></div>
+      </div>
+      <div class="tree-item indent-1">
+        <div class="tree-name file">results_N.json · critic_N.json · ...</div>
+        <div class="tree-desc"></div>
+      </div>
+      <div class="tree-item indent-1">
+        <div class="tree-name file">final_report.md</div>
+        <div class="tree-desc">Reporter 输出</div>
+      </div>
+    </div>
+
+    <div class="tree-group">
+      <div class="tree-item">
+        <div class="tree-name dir">experiments/</div>
+        <div class="tree-desc"></div>
+      </div>
+      <div class="tree-item indent-1">
+        <div class="tree-name file">iter_N/</div>
+        <div class="tree-desc">run.py · requirements.txt · metrics.json · venv/</div>
+      </div>
+    </div>
+
+    <div class="tree-group">
+      <div class="tree-item">
+        <div class="tree-name dir">data/</div>
+        <div class="tree-desc"></div>
+      </div>
+      <div class="tree-item indent-1">
+        <div class="tree-name file">chroma/</div>
+        <div class="tree-desc">ChromaDB 本地向量库</div>
+      </div>
+      <div class="tree-item indent-1">
+        <div class="tree-name file">mlflow/</div>
+        <div class="tree-desc">MLflow SQLite 实验追踪</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 07 · SETUP ══ -->
+<div class="sec">
+  <div class="sec-label">07 · 安装与启动</div>
+
+  <div class="code-wrap">
+    <div class="code-head"><span class="cf">一键安装脚本</span><span class="cl">Shell · macOS/Linux</span></div>
+<pre>
+<span class="cm"># 1. 安装 OpenClaw（Node.js ≥22 required）</span>
+npm install -g openclaw@latest
+openclaw onboard --install-daemon      <span class="cm"># 向导配置 + launchd/systemd 守护进程</span>
+
+<span class="cm"># 2. 写入多 Agent 配置（参考 §01）</span>
+<span class="cm"># 直接编辑 ~/.openclaw/openclaw.json</span>
+
+<span class="cm"># 3. Python 环境（CPU only，零 GPU）</span>
+cd ~/.openclaw/workspace
+python3 -m venv venv && source venv/bin/activate
+pip install anthropic voyageai chromadb mlflow arxiv pypdf2 pyyaml
+
+<span class="cm"># 4. 环境变量（bash tool 继承）</span>
+echo 'export ANTHROPIC_API_KEY="sk-ant-..."' >> ~/.zshrc
+echo 'export VOYAGE_API_KEY="pa-..."'        >> ~/.zshrc
+source ~/.zshrc
+
+<span class="cm"># 5. 创建 Skills 目录和文件（参考 §04）</span>
+mkdir -p skills/{researcher-pipeline,experiment-runner,voyage-embed,critic-analyzer,state-manager,asr-domain}
+<span class="cm"># 将 §04 中各 SKILL.md 内容写入对应目录</span>
+
+<span class="cm"># 6. 写入 AGENTS.md（参考 §04）</span>
+
+<span class="cm"># 7. 启动 Gateway</span>
+openclaw gateway --port 18789 --verbose
+<span class="cm"># WebChat: http://127.0.0.1:18789</span>
+
+<span class="cm"># 8. 发送第一条研究请求（WebChat 或 Telegram 均可）</span>
+openclaw agent --thinking high \
+  --message "需求: 大规模热词召回替代GLCLAP。方向: Dual-Encoder+FAISS音文对齐。目标CER≤0.08，延迟P95≤50ms，词库10k+，最多6轮迭代"
+
+<span class="cm"># 9. （可选）启动 MLflow UI 查看实验</span>
+mlflow ui --backend-store-uri ~/.openclaw/workspace/data/mlflow --port 5000
+</pre>
+  </div>
+</div>
+
+<!-- ══ 08 · COST ══ -->
+<div class="sec" id="cost">
+  <div class="sec-label">08 · 模型分工与费用估算</div>
+
+  <table>
+    <thead>
+      <tr><th>Agent</th><th>模型</th><th>OpenClaw 机制</th><th>Thinking</th><th>场景</th><th>费用/次</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Orchestrator</td><td><span class="badge b-pur">Opus 4.6</span></td><td>main session</td><td>high</td><td>编排/用户交互/收敛判断</td><td>~$0.6</td></tr>
+      <tr><td>Research Agent</td><td><span class="badge b-cyan">Sonnet 4.6</span></td><td>sessions_spawn</td><td>low</td><td>脚本内抽取论文信息</td><td>~$0.8</td></tr>
+      <tr><td>Planner Agent</td><td><span class="badge b-pur">Opus 4.6</span></td><td>sessions_spawn</td><td>high</td><td>实验计划制定（基线+消融）</td><td>~$0.5</td></tr>
+      <tr><td>Coder Agent ×N</td><td><span class="badge b-cyan">Sonnet 4.6</span></td><td>sessions_spawn</td><td>medium</td><td>run.py + requirements.txt</td><td>~$1.2</td></tr>
+      <tr><td>Executor</td><td><span class="badge b-pink">本地 CPU</span></td><td>bash tool (直接)</td><td>-</td><td>venv + subprocess + MLflow</td><td>$0</td></tr>
+      <tr><td>Critic Agent ×N</td><td><span class="badge b-pur">Opus 4.6</span></td><td>sessions_spawn</td><td>high</td><td>gap 分析/失败诊断/改进建议</td><td>~$1.6</td></tr>
+      <tr><td>Reporter</td><td><span class="badge b-cyan">Sonnet 4.6</span></td><td>sessions_spawn</td><td>low</td><td>学术报告生成</td><td>~$0.4</td></tr>
+      <tr><td>Haiku（脚本内）</td><td><span class="badge b-grn">Haiku 4.5</span></td><td>Python SDK via bash</td><td>off</td><td>query生成/错误摘要/JSON格式化</td><td>~$0.05</td></tr>
+      <tr><td>Voyage Embedding</td><td><span class="badge b-amb">voyage-3.5</span></td><td>Python SDK via bash</td><td>-</td><td>论文向量化（免费 tier 50M/月）</td><td>~$0.05</td></tr>
+    </tbody>
+  </table>
+
+  <div class="cost-grid">
+    <div class="cg"><div class="cg-l">Research Phase</div><div class="cg-v" style="color:var(--cyan)">~$0.85</div><div class="cg-n">Sonnet 20篇抽取<br>+ Haiku query</div></div>
+    <div class="cg"><div class="cg-l">Plan + Code ×6</div><div class="cg-v" style="color:#a78bfa">~$1.7</div><div class="cg-n">Opus 规划 1次<br>Sonnet 编码 6次</div></div>
+    <div class="cg"><div class="cg-l">Critic ×6 (Opus)</div><div class="cg-v" style="color:#a78bfa">~$1.6</div><div class="cg-n">每轮 extended thinking<br>深度 gap 分析</div></div>
+    <div class="cg"><div class="cg-l">Report + Embed</div><div class="cg-v" style="color:var(--cyan)">~$0.45</div><div class="cg-n">Sonnet 报告<br>Voyage 免费 tier</div></div>
+    <div class="cg"><div class="cg-l">总计 / 次</div><div class="cg-v" style="color:var(--bright)">$4–6</div><div class="cg-n">6轮完整迭代<br>本地CPU执行</div></div>
+  </div>
+</div>
+
+<!-- ══ 09 · RISK ══ -->
+<div class="sec">
+  <div class="sec-label">09 · 风险与应对</div>
+
+  <div class="risk">
+    <div class="risk-head">
+      <div>风险</div><div>等级</div><div>OpenClaw Native 应对策略</div>
+    </div>
+    <div class="risk-row">
+      <div>⚠️ sandbox 隔离致状态不可见</div><div class="risk-high" style="background:#c0392b;color:#fff">极高</div>
+      <div>sandbox 默认 workspaceAccess:"none" 创建隔离 workspace，子 Agent 无法读写 state/。<strong>必须 sandbox.mode:"off"</strong></div>
+    </div>
+    <div class="risk-row">
+      <div>Agent 代码幻觉</div><div class="risk-high">高</div>
+      <div>bash 捕获 stderr，Haiku 摘要错误→Critic 自动诊断；per-agent tools.deny 限制危险工具</div>
+    </div>
+    <div class="risk-row">
+      <div>无限迭代循环</div><div class="risk-high">高</div>
+      <div>AGENTS.md 写明硬限制；iteration.json 计数；<strong>每次 sessions_spawn 必须显式设置 runTimeoutSeconds</strong>（默认 0=不超时）</div>
+    </div>
+    <div class="risk-row">
+      <div>exec 超时不足</div><div class="risk-high">高</div>
+      <div>exec 默认 timeout 1800s，ASR 实验可能超时。<strong>必须显式设 tools.exec.timeout: 3600</strong></div>
+    </div>
+    <div class="risk-row">
+      <div>turn 排序错乱</div><div class="risk-med">中</div>
+      <div>单 turn 内连续 spawn 多个 Agent 导致并发冲突。<strong>严格 Turn-Based：每次只 spawn 一个，spawn 后结束 turn</strong></div>
+    </div>
+    <div class="risk-row">
+      <div>上下文爆炸</div><div class="risk-med">中</div>
+      <div>子 Agent task 只传简短指令；所有大数据通过 bash 读 state/ 文件，不在 LLM 上下文中传递</div>
+    </div>
+    <div class="risk-row">
+      <div>实验不可复现</div><div class="risk-med">中</div>
+      <div>MLflow 记录参数/指标/Artifact；venv pin 版本；state/ 保存完整配置；random seed 写入 config</div>
+    </div>
+    <div class="risk-row">
+      <div>API 费用失控</div><div class="risk-med">中</div>
+      <div>Critic 首轮可用 Sonnet，稳定后升 Opus；Anthropic Console 设月度预算告警；agents.defaults.subagents.maxConcurrent 控并发</div>
+    </div>
+    <div class="risk-row">
+      <div>announce 丢失</div><div class="risk-med">中</div>
+      <div>Gateway 重启会丢失 pending announce（best-effort）；备用：Orchestrator 用 sessions_history 轮询子 Agent 状态</div>
+    </div>
+    <div class="risk-row">
+      <div>Gateway 崩溃</div><div class="risk-low">低</div>
+      <div>--install-daemon 安装系统级守护；state/ 文件持久化，重启后 Orchestrator 读 progress.json + iteration.json 续跑</div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  OpenClaw Researcher Assistant Framework v3.0 · 2026-03 · 基于源码深度分析 + 可行性评估修订<br>
+  sessions_spawn · sessions_send · SKILL.md · AGENTS.md · bash tool · openclaw.json<br>
+  claude-opus-4-6 · claude-sonnet-4-6 · claude-haiku-4-5-20251001 · voyage-3.5 · ChromaDB · MLflow
+</footer>
+
+</div><!-- /wrap -->
+</body>
+</html>

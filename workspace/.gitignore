@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+venv/
+.venv/
+experiments/*/venv/
+
+# State files (runtime generated)
+state/*.json
+state/*.md
+state/*.yaml
+!state/.gitkeep
+!state/*.example.json
+!state/*.example.yaml
+
+# Data stores
+data/chroma/
+data/mlflow/
+!data/.gitkeep
+
+# Reports (generated)
+reports/*.md
+!reports/.gitkeep
+
+# Experiment artifacts
+experiments/*/run.py
+experiments/*/requirements.txt
+experiments/*/metrics.json
+!experiments/.gitkeep
+
+# Environment
+.env
+
+# OS
+.DS_Store
+Thumbs.db

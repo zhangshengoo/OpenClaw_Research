@@ -1,0 +1,7 @@
+anthropic>=0.40.0
+voyageai>=0.3.0
+chromadb>=0.5.0
+mlflow>=2.15.0
+arxiv>=2.1.0
+pypdf2>=3.0.0
+pyyaml>=6.0.0

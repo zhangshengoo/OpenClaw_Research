@@ -1,0 +1,16 @@
+{
+  "query": "How to improve contextual biasing accuracy for end-to-end ASR systems?",
+  "tech_direction": "Dual-encoder contextual biasing with FAISS retrieval for CIF-based ASR",
+  "target_metrics": {
+    "cer": 0.08,
+    "latency_p95_ms": 50,
+    "recall_10": 0.90
+  },
+  "max_iterations": 6,
+  "min_delta": 0.005,
+  "constraints": {
+    "gpu": false,
+    "max_experiment_time_s": 3600,
+    "dataset": "aishell-1"
+  }
+}
